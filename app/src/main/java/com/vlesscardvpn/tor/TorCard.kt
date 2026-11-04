@@ -116,6 +116,7 @@ object TorCard {
         require(ptProxyPort in 1024..65535 && ptProxyPort != socksPort && ptProxyPort != controlPort && ptProxyPort != upstreamHttpPort)
         validateBridgeLines(bridgeLines)
         appendLine("SocksPort 127.0.0.1:$socksPort")
+        exitNodes(exitCountry)
         appendLine("ControlPort 127.0.0.1:$controlPort")
         appendLine("CookieAuthentication 1")
         appendLine("CookieAuthFile $cookieFile")

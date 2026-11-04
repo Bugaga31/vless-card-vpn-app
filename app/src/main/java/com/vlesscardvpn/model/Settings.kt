@@ -134,6 +134,8 @@ data class Settings(
     val torBridge: String = "none",
     /** Пользовательские строки мостов «Bridge …» (с сайта bridges.torproject.org), по одной на строку. */
     val torBridgeLines: String = "",
+    /** Страна выхода Tor (ISO, "" = авто). Пусто — ротатор выбирает сам. */
+    val torExit: String = "",
     /** «Весь трафик через Tor»: max-anonymity mode — the default route goes to the local Tor SOCKS too (not just picked services). */
     val torAll: Boolean = false,
     /** Отдельный путь Tor: демон Tor исключается из туннеля и ходит в интернет напрямую (своё шифрование/мосты), не заворачиваясь в VLESS. */
