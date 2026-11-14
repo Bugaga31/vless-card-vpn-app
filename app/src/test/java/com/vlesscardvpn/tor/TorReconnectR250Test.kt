@@ -25,24 +25,23 @@ class TorReconnectR250Test {
     }
 
     @Test
-    fun `failed tick drops the connection flag and a reconnect restores rotation`() {
+    fun `failed tick drops the connection and a reconnect restores rotation`() {
         var t = 1_000_000L
         val control = DropControl()
         val rotation = TorRotation(rotateEveryMs = 60_000, now = { t })
         val rotator = TorRotator(control, rotation, cookieHex = "01")
-        rotator.connect()
-        rotator.recordExit(100, "de") // without a measured exit the policy never rotates
-        assertTrue(rotator.isConnected)
+        assertTrue(rotator.connect())
+        assertFalse(rotator.needsReconnect)
         rotation.markRotated(t)
         t += 61_000
         control.fail = true // daemon restarted, control socket dead
         assertFalse(rotator.tick(t))
-        assertFalse(rotator.isConnected)
+        assertTrue(rotator.needsReconnect)
         assertTrue(rotator.lastErrorOr != null)
         control.fail = false // daemon back up
-        rotator.connect() // the loop re-arms on the next tick
-        rotation.markRotated(t - 61_000) // re-arm the cadence clock the loop relies on
-        assertTrue(rotator.isConnected)
+        assertTrue(rotator.connect()) // the loop re-arms on the next tick
+        assertFalse(rotator.needsReconnect)
+        t += 61_000 // connect re-seeds the cadence clock: the fresh Tor already has a circuit
         assertTrue(rotator.tick(t))
     }
 
@@ -51,22 +50,22 @@ class TorReconnectR250Test {
         val control = DropControl()
         val rotation = TorRotation(rotateEveryMs = 60_000, now = { 1_000_000L })
         val rotator = TorRotator(control, rotation, countries = listOf("nl", "de"), cookieHex = "01")
-        rotator.connect()
+        assertTrue(rotator.connect())
         assertEquals(1, control.connectedTimes)
         // reconnect: the same countries must be applied to the fresh control session
-        rotator.connect()
+        assertTrue(rotator.connect())
         assertEquals(2, control.connectedTimes)
         assertEquals(listOf("nl,de", "nl,de"), control.exitNodes)
     }
 
     @Test
-    fun `isConnected stays true across quiet ticks`() {
+    fun `control stays up across quiet ticks`() {
         val control = DropControl()
         val rotation = TorRotation(rotateEveryMs = 600_000, now = { 0 })
         val rotator = TorRotator(control, rotation, cookieHex = "01")
-        rotator.connect()
+        assertTrue(rotator.connect())
         assertFalse(rotator.tick(1_000L)) // not due
-        assertTrue(rotator.isConnected)
+        assertFalse(rotator.needsReconnect)
         assertNull(rotator.lastErrorOr)
     }
 }
