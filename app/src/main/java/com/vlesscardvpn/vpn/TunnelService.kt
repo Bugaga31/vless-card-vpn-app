@@ -411,22 +411,37 @@ class TunnelService : VpnService() {
     /**
      * Tor exit rotator, absorbed from tor-rotator-vless (docs/tor-rotator-absorption.md).
      * Opt-in via settings.torRotation. Rotates the exit node of a locally started Tor
-     * (embedded libTor.so, or Termux SocksPort/ControlPort — see tor/TorCard) while connected.
+     * (embedded libTor.so, or Termux SocksPort/ControlPort — see tor/TorCard).
+     *
+     * Self-healing: the embedded daemon can be killed by the system mid-session — the loop
+     * watches the SOCKS port and restarts it; a dropped control socket is re-armed on the
+     * next tick instead of idling the rotator until reconnect. In torRouting-only mode
+     * (no rotation) a light watchdog keeps the daemon alive the same way.
      */
     private fun torLoop() {
         if (torJob?.isActive == true) return
         val st = Store.state.value.settings
         if (!st.torRotation && !st.torRouting) return
+        val bridgeLines = st.torBridgeLines.lines().map { it.trim() }.filter { it.startsWith("Bridge ") }.take(12)
+        fun restartDaemon() = runCatching {
+            com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, st.torBridge,
+                bridgeLines = bridgeLines, exitCountry = st.torExit)
+        }.getOrNull()
         torJob = scope.launch {
-            // Embedded daemon (no Termux needed); Termux instance wins when its cookie is readable.
-            runCatching {
-                com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, st.torBridge,
-                    bridgeLines = st.torBridgeLines.lines().map { it.trim() }.filter { it.startsWith("Bridge ") }.take(12),
-                    exitCountry = st.torExit)
+            restartDaemon()
+            if (!st.torRotation) {
+                // torRouting only: no rotator, but the SOCKS port must stay up for the whole session.
+                while (Tunnel.status.value.state == Tunnel.State.CONNECTED && Store.state.value.settings.torRouting) {
+                    delay(60_000L)
+                    if (!com.vlesscardvpn.tor.TorCard.portUp()) {
+                        runCatching { com.vlesscardvpn.tor.TorCard.stopEmbedded() }
+                        restartDaemon()
+                    }
+                }
+                return@launch
             }
             val cookie = runCatching { com.vlesscardvpn.tor.TorCard.readCookieHex(this@TunnelService) }.getOrNull()
             if (cookie == null) { Log.i("TOR", "no control cookie, rotator idle"); return@launch }
-            if (!st.torRotation) return@launch
             val rotator = com.vlesscardvpn.tor.TorRotator(
                 com.vlesscardvpn.tor.TorControl("127.0.0.1", com.vlesscardvpn.tor.TorCard.DEFAULT_CONTROL_PORT),
                 countries = com.vlesscardvpn.tor.TorCard.preferredCountries(Store.state.value.servers),
@@ -438,6 +453,15 @@ class TunnelService : VpnService() {
                 while (true) {
                     delay(10_000L)
                     if (Tunnel.status.value.state != Tunnel.State.CONNECTED || !Store.state.value.settings.torRotation) break
+                    // self-healing: the daemon may have been killed (OOM, system) — bring it back;
+                    // the cookie file is stable, so the control socket just reconnects below.
+                    if (!com.vlesscardvpn.tor.TorCard.portUp()) {
+                        runCatching { com.vlesscardvpn.tor.TorCard.stopEmbedded() }
+                        restartDaemon()
+                        rotator.connect()
+                    } else if (!rotator.isConnected) {
+                        rotator.connect() // control-port drop mid-session: re-arm instead of idling
+                    }
                     val nowMs = System.currentTimeMillis()
                     // tor-rotator algorithm: measure the real exit through the tunnel (Cloudflare trace, loc=)
                     // and feed the policy — the history learns which countries are actually fast right now.
