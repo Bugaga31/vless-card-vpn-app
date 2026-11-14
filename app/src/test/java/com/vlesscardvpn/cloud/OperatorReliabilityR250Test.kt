@@ -39,7 +39,7 @@ class OperatorReliabilityR250Test {
     @Test fun reliabilityIsBetaSmoothedLikeSuccessChance() {
         val k = "abcd1234"
         assertEquals(1.0, CloudSpeed.reliability(k, emptyMap()), 1e-9)
-        assertEquals((0.9 * 4 + 2) / 6, CloudSpeed.reliability(k, mapOf(k to intArrayOf(8000, 90, 4))), 1e-9)
+        assertEquals((0.9 * 4 + 2) / 8, CloudSpeed.reliability(k, mapOf(k to intArrayOf(8000, 90, 4))), 1e-9)
         // fewer than three checks: no reliability opinion, not a penalty
         assertEquals(1.0, CloudSpeed.reliability(k, mapOf(k to intArrayOf(8000, 90, 2))), 1e-9)
     }
