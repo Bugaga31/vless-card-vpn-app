@@ -72,9 +72,14 @@ object CloudSpeed {
         it.size >= 3 && it[2] >= 5 && ServerChoice.successChance(it[1], it[2]) < 0.25
     } == true
 
-    /** Best known speed: this operator's phones first (if it mostly works there), else the GitHub measurement. */
+    /** Best known speed: this operator's phones first (if it mostly works there), else the GitHub measurement.
+     *  Two lucky checks do not yet describe the operator; at least three are required. */
     fun speedOf(key: String, gh: Map<String, Int> = kbps, n: Map<String, IntArray> = net): Int =
-        n[key]?.takeIf { it[0] > 0 && it[1] >= 50 }?.get(0) ?: gh[key] ?: 0
+        n[key]?.takeIf { it[0] > 0 && it[1] >= 50 && it[2] >= 3 }?.get(0) ?: gh[key] ?: 0
+
+    /** Cloud reliability on this operator: Beta(2,2) over the recorded checks (unknown stays 1.0, never a ban). */
+    fun reliability(key: String, n: Map<String, IntArray> = net): Double =
+        n[key]?.takeIf { it.size >= 3 && it[2] >= 3 }?.let { ServerChoice.successChance(it[1], it[2]) } ?: 1.0
 
     /** Cloud changes every 10 min. Errors back off for a minute; saved data remain usable offline. */
     fun refreshDue(now: Long, fetched: Long, attempted: Long, hasCache: Boolean): Boolean =
@@ -123,7 +128,9 @@ object CloudSpeed {
              here: Map<String, IntArray> = net): List<Server> {
         val ids = skip.map { it.id }.toHashSet()
         return pinged.filter { it.id !in ids && !blocked(it, here) }.map { it to maxOf(speedOf(Report.serverKey(it), speeds, here), CloudControl.speed(it)) }
-            .filter { it.second >= min }.sortedByDescending { it.second }.map { it.first }
+            .filter { it.second >= min }
+            // Raw speed ranks capability; the operator's own success rate discounts a flaky server before it is tried.
+            .sortedByDescending { (s, spd) -> spd * reliability(Report.serverKey(s), here) }.map { it.first }
             .let { ServerChoice.diverse(it, n) }
     }
 }
