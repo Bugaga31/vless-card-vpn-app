@@ -31,6 +31,7 @@ class TorReconnectR250Test {
         val rotation = TorRotation(rotateEveryMs = 60_000, now = { t })
         val rotator = TorRotator(control, rotation, cookieHex = "01")
         rotator.connect()
+        rotator.recordExit(100, "de") // without a measured exit the policy never rotates
         assertTrue(rotator.isConnected)
         rotation.markRotated(t)
         t += 61_000
@@ -40,6 +41,7 @@ class TorReconnectR250Test {
         assertTrue(rotator.lastErrorOr != null)
         control.fail = false // daemon back up
         rotator.connect() // the loop re-arms on the next tick
+        rotation.markRotated(t - 61_000) // re-arm the cadence clock the loop relies on
         assertTrue(rotator.isConnected)
         assertTrue(rotator.tick(t))
     }
