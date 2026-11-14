@@ -1080,7 +1080,7 @@ class TunnelService : VpnService() {
                     if (!com.vlesscardvpn.tor.TorCard.portUp()) {
                         runCatching { com.vlesscardvpn.tor.TorCard.stopEmbedded() }
                         val cur = Store.state.value.settings
-                        runCatching { com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, cur.torBridge, bridgeLines = startedLines) }
+                        runCatching { com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, cur.torBridge, bridgeLines = runCatching { com.vlesscardvpn.tor.TorBridgeCatalog.selected(cur.torBridgeLines, cur.torBridge) }.getOrNull()) }
                     }
                 }
                 return@launch
@@ -1119,7 +1119,7 @@ class TunnelService : VpnService() {
                     if (!com.vlesscardvpn.tor.TorCard.portUp()) {
                         runCatching { com.vlesscardvpn.tor.TorCard.stopEmbedded() }
                         val cur = Store.state.value.settings
-                        runCatching { com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, cur.torBridge, bridgeLines = startedLines) }
+                        runCatching { com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, cur.torBridge, bridgeLines = runCatching { com.vlesscardvpn.tor.TorBridgeCatalog.selected(cur.torBridgeLines, cur.torBridge) }.getOrNull()) }
                     }
                     if (rotator.needsReconnect) {
                         if (nowMs - lastReconnect < com.vlesscardvpn.tor.TorRotator.RECONNECT_MS) continue
