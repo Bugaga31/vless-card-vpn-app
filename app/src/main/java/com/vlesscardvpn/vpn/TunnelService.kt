@@ -1000,7 +1000,12 @@ class TunnelService : VpnService() {
     /**
      * Tor exit rotator, absorbed from tor-rotator-vless (docs/tor-rotator-absorption.md).
      * Opt-in via settings.torRotation. Rotates the exit node of a locally started Tor
-     * (embedded libTor.so, or Termux SocksPort/ControlPort — see tor/TorCard) while connected.
+     * (embedded libTor.so, or Termux SocksPort/ControlPort — see tor/TorCard).
+     *
+     * Self-healing: the embedded daemon can be killed by the system mid-session — the loop
+     * watches the SOCKS port and restarts it; a dropped control socket is re-armed on the
+     * next tick instead of idling the rotator until reconnect. In torRouting-only mode
+     * (no rotation) a light watchdog keeps the daemon alive the same way.
      */
     private fun torLoop() {
         if (torJob?.isActive == true) return
@@ -1068,7 +1073,18 @@ class TunnelService : VpnService() {
                 found
             }
             if (endpoint == null) { Log.i("TOR", "control endpoint unavailable; rotator idle"); return@launch }
-            if (!st.torRotation) return@launch
+            if (!st.torRotation) {
+                // torRouting only: no rotator, but the SOCKS port must stay up for the whole session.
+                while (Tunnel.status.value.state == Tunnel.State.CONNECTED && Store.state.value.settings.torRouting) {
+                    delay(60_000L)
+                    if (!com.vlesscardvpn.tor.TorCard.portUp()) {
+                        runCatching { com.vlesscardvpn.tor.TorCard.stopEmbedded() }
+                        val cur = Store.state.value.settings
+                        runCatching { com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, cur.torBridge, bridgeLines = startedLines) }
+                    }
+                }
+                return@launch
+            }
             // One policy for the whole session: a control reconnect (daemon restarted with fresh bridges, socket
             // dropped) keeps the measured exit history instead of starting the rotation brain from scratch.
             val rotation = com.vlesscardvpn.tor.TorConnectionPolicy.rotation(st, android.os.SystemClock::elapsedRealtime)
@@ -1098,6 +1114,13 @@ class TunnelService : VpnService() {
                     val power = com.vlesscardvpn.core.PhonePower.refresh(this@TunnelService)
                     // Metered/mobile is not an exclusion for this small, user-enabled control loop.
                     if (!power.allowLight) continue
+                    // self-healing: the daemon may have been killed (OOM, system) — bring it back;
+                    // the next needsReconnect pass re-arms the control socket with the fresh endpoint.
+                    if (!com.vlesscardvpn.tor.TorCard.portUp()) {
+                        runCatching { com.vlesscardvpn.tor.TorCard.stopEmbedded() }
+                        val cur = Store.state.value.settings
+                        runCatching { com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, cur.torBridge, bridgeLines = startedLines) }
+                    }
                     if (rotator.needsReconnect) {
                         if (nowMs - lastReconnect < com.vlesscardvpn.tor.TorRotator.RECONNECT_MS) continue
                         lastReconnect = nowMs

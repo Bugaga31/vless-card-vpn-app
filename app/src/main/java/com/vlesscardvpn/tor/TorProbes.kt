@@ -39,6 +39,15 @@ object TorProbes {
 
     /** [latencyMs, ISO country code] of the Tor exit, or null when the circuit is not working. */
     fun exitInfo(socksPort: Int = TorCard.DEFAULT_SOCKS_PORT, timeoutMs: Int = 8000): Pair<Int, String>? {
+        // A fresh circuit can stall on its first seconds; a lost trace must not lose the
+        // measurement — one retry before giving up (the trace is ~1 KB, the cost is small).
+        repeat(2) {
+            probe(socksPort, timeoutMs)?.let { return it }
+        }
+        return null
+    }
+
+    private fun probe(socksPort: Int, timeoutMs: Int): Pair<Int, String>? {
         val client = OkHttpClient.Builder()
             .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", socksPort)))
             .connectTimeout(timeoutMs.toLong(), TimeUnit.MILLISECONDS)
