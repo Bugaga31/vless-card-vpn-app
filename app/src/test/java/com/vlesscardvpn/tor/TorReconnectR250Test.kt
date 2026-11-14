@@ -28,7 +28,7 @@ class TorReconnectR250Test {
     fun `two failed ticks ask for reconnect and a reconnect restores rotation`() {
         var t = 1_000_000L
         val control = DropControl()
-        val rotation = TorRotation(rotateEveryMs = 60_000, now = { t })
+        val rotation = com.vlesscardvpn.tor.TorConnectionPolicy.rotation(com.vlesscardvpn.model.Settings(torRotationSeconds = 60)) { t }
         val rotator = TorRotator(control, rotation, cookieHex = "01")
         assertTrue(rotator.connect())
         assertFalse(rotator.needsReconnect)
