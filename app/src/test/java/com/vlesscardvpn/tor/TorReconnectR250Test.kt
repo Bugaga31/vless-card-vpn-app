@@ -25,7 +25,7 @@ class TorReconnectR250Test {
     }
 
     @Test
-    fun `failed tick drops the connection and a reconnect restores rotation`() {
+    fun `two failed ticks ask for reconnect and a reconnect restores rotation`() {
         var t = 1_000_000L
         val control = DropControl()
         val rotation = TorRotation(rotateEveryMs = 60_000, now = { t })
@@ -36,10 +36,13 @@ class TorReconnectR250Test {
         t += 61_000
         control.fail = true // daemon restarted, control socket dead
         assertFalse(rotator.tick(t))
-        assertTrue(rotator.needsReconnect)
+        assertFalse(rotator.needsReconnect) // one failure may be transient
         assertTrue(rotator.lastErrorOr != null)
+        t += 61_000
+        assertFalse(rotator.tick(t))
+        assertTrue(rotator.needsReconnect) // two consecutive failures: re-arm the control socket
         control.fail = false // daemon back up
-        assertTrue(rotator.connect()) // the loop re-arms on the next tick
+        assertTrue(rotator.connect()) // the loop re-arms on the needsReconnect branch
         assertFalse(rotator.needsReconnect)
         t += 61_000 // connect re-seeds the cadence clock: the fresh Tor already has a circuit
         assertTrue(rotator.tick(t))

@@ -90,10 +90,9 @@ class TorRotator(
             true
         } catch (e: IOException) {
             lastError = e.message
-            // A dead control socket stays dead: close it and drop the connected flag so the
-            // next tick re-arms the connection (daemon restart, control-port drop).
-            runCatching { control.close() }
-            connected = false
+            // One failure may be transient (daemon busy, short drop): keep the session and
+            // count it. needsReconnect flips after two consecutive failures, and the session
+            // loop re-arms the control socket there (RECONNECT_MS spacing).
             failures++
             false
         }
