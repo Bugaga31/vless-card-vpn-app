@@ -9,7 +9,7 @@ class StandbyProgressR245Test {
         val file = listOf(File("src/main/java/com/vlesscardvpn/vpn/TunnelService.kt"), File("app/src/main/java/com/vlesscardvpn/vpn/TunnelService.kt")).first { it.exists() }
         val source = file.readText().substringAfter("private fun prepareStandbySoon()").substringBefore("private var scoutJob")
         assertTrue("a verified increase should trigger another pass without waiting for the next poll", source.contains("StandbyPreparationPolicy.continueAfter"))
-        assertTrue("the whole wave must have a bounded deadline", source.contains("withTimeoutOrNull(com.vlesscardvpn.core.StandbyPreparationPolicy.PASS_TIMEOUT_MS)"))
+        assertTrue("the whole wave must have a bounded deadline", source.contains("withTimeoutOrNull(com.vlesscardvpn.core.StandbyPreparationPolicy.passTimeoutMs(Actions.standbyPoolSize(servers)))"))
     }
     @Test fun verifiedGrowthContinuesOnlyWhileBelowTarget() {
         assertTrue(StandbyPreparationPolicy.continueAfter(0,1))

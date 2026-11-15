@@ -1595,7 +1595,7 @@ class TunnelService : VpnService() {
                     // One bounded wave fills missing reserves without a 30s pause after each
                     // actual success. Never spin on an empty/failed/inconclusive pass.
                     recoveryCpuLease {
-                        kotlinx.coroutines.withTimeoutOrNull(com.vlesscardvpn.core.StandbyPreparationPolicy.PASS_TIMEOUT_MS) {
+                        kotlinx.coroutines.withTimeoutOrNull(com.vlesscardvpn.core.StandbyPreparationPolicy.passTimeoutMs(Actions.standbyPoolSize(servers))) {
                             var before=Actions.warmReserveCount(servers)
                             repeat(com.vlesscardvpn.core.StandbyPreparationPolicy.TARGET) { pass ->
                                 if (!isActive || core!==sampledCore || chainEpoch.get()!=sampledEpoch ||

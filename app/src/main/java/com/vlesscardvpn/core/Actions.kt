@@ -2172,6 +2172,21 @@ object Actions {
         }
     }
 
+    /** The un-probed reserve pool: unused, not already verified warm, not cooling or ranked out. */
+    fun standbyPool(used: List<Server>): List<Server> {
+        val st = Store.state.value; val ids = used.map { it.id }.toSet(); val net = Net.key(app)
+        val stamp=System.currentTimeMillis()
+        val observation=Net.observation(app) ?: return emptyList()
+        val cached=WarmReserveMemory.session.candidates(observation,st.servers,{st.state(it).maskFor(net)},MaskTrialFence.context(st.settings),
+            android.os.SystemClock.elapsedRealtime()).mapTo(HashSet()) {it.id}
+        return preferred(st, st.servers.filter { it.id !in ids && it.id !in cached }).filter {server->
+            !probeMemory.cooling(net,server.id,st.state(server).maskFor(net),stamp) &&
+            !RouteStabilityMemory.session.cooling(net,server.id,st.state(server).maskFor(net),stamp) &&
+            (!AutoChecks.current.telegram || !TelegramRouteMemory.cooling(net,server.id,st.state(server).maskFor(net),stamp)) &&
+            AutoChecks.rank(st.state(server),net,stamp)!=2
+        }
+    }
+    fun standbyPoolSize(used: List<Server>): Int = standbyPool(used).size
     fun warmReserveCount(used: List<Server>): Int {
         val observation=Net.observation(app) ?: return 0
         val st=Store.state.value; val now=System.currentTimeMillis()
@@ -2188,19 +2203,11 @@ object Actions {
         if(!StandbyPreparationPolicy.mayPrepare(Store.state.value.settings.mode==Mode.AUTO,plan)) {
             reserveStatus.value="Резервы: подготовка отложена на время звонка или перегрева"; return null
         }
-        val st = Store.state.value; val ids = used.map { it.id }.toSet(); val net = Net.key(app)
-        val stamp=System.currentTimeMillis()
+        val st = Store.state.value; val net = Net.key(app)
         val warm = warmReserveCount(used)
         if (warm>=StandbyPreparationPolicy.TARGET) { reserveStatus.value="Резервы: готовы $warm"; return null }
         val observation=Net.observation(app) ?: return null
-        val cached=WarmReserveMemory.session.candidates(observation,st.servers,{st.state(it).maskFor(net)},MaskTrialFence.context(st.settings),
-            android.os.SystemClock.elapsedRealtime()).mapTo(HashSet()) {it.id}
-        val pool = preferred(st, st.servers.filter { it.id !in ids && it.id !in cached }).filter {server->
-            !probeMemory.cooling(net,server.id,st.state(server).maskFor(net),stamp) &&
-            !RouteStabilityMemory.session.cooling(net,server.id,st.state(server).maskFor(net),stamp) &&
-            (!AutoChecks.current.telegram || !TelegramRouteMemory.cooling(net,server.id,st.state(server).maskFor(net),stamp)) &&
-            AutoChecks.rank(st.state(server),net,stamp)!=2
-        }
+        val pool = standbyPool(used)
         val now = System.currentTimeMillis()
         val total = pool.sumOf { st.state(it).evidenceFor(net).checks.coerceIn(0, 10000) }.coerceAtMost(1_000_000)
         val ranked = AdaptiveRouteRank.order(pool,{st.state(it)},net,now,{CloudSpeed.prior(it)})
@@ -2222,7 +2229,7 @@ object Actions {
         val previous = progress.value
         reserveStatus.value="Резервы: готовы $warm · проверяю запасной маршрут"
         try {
-            kotlinx.coroutines.withTimeoutOrNull(StandbyPreparationPolicy.PASS_TIMEOUT_MS) {
+            kotlinx.coroutines.withTimeoutOrNull(StandbyPreparationPolicy.passTimeoutMs(candidates.size)) {
                 realTest(candidates,"Подготовка резерва",big=false,youtube=false,telegram=true,attempts=1,stopAfter=1,
                     budgetMs=ConnectPolicy.QUICK_BUDGET_MS,onFirst={ found=it })
             }
