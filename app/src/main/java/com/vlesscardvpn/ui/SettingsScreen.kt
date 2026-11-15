@@ -243,6 +243,17 @@ fun SettingsScreen(openAssistant: () -> Unit = {}) {
         Toggle("Мультиплексирование (mux)", "Меньше новых соединений — меньше рукопожатий, которые видит DPI. Проверки серверов идут с тем же mux. Не для Vision, XHTTP и SOCKS", s.mux) { v -> set { it.copy(mux = v) } }
         Toggle("Менять маскировку при каждом подключении", "Случайная из рабочих, найденных «Подобрать маскировку», — у трафика нет постоянного отпечатка", s.rotateMasks) { v -> set { it.copy(rotateMasks = v) } }
         Toggle("Блокировать рекламу и трекеры", "Встроенный список плюс живой список AdGuard, который обновляется сам каждые 3 дня, без обновления приложения. Рекламу внутри видео YouTube гарантированно не удаляет: она может идти с теми же адресами, что и видео. При сбое сайта выключите", s.blockAds) { v -> set { it.copy(blockAds = v) } }
+        if (s.blockAds) {
+            val adst by com.vlesscardvpn.core.AdBlockPolicy.statusFlow.collectAsState()
+            val adLine = if (adst.domains > 0)
+                "В блок-листе ${adst.domains} доменов, обновлён " + android.text.format.DateUtils.getRelativeTimeSpanString(adst.fetchedAt).toString().lowercase()
+            else "Блок-лист наполнится после первого подключения (сид-список уже блокирует крупные рекламные сети)"
+            Text(adLine, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val adScope = rememberCoroutineScope(); var adBusy by remember { mutableStateOf(false) }
+            OutlinedButton(onClick = { adBusy = true; adScope.launch { runCatching { com.vlesscardvpn.core.AdBlockPolicy.refresh(ctx.filesDir) }; adBusy = false } }, enabled = !adBusy) {
+                Text(if (adBusy) "Обновляю…" else "Обновить список сейчас")
+            }
+        }
         Toggle("Режим «Не отслеживается»", "Режет мобильную телеметрию (Firebase/Crashlytics/Sentry/AppsFlyer/TikTok-аналитика) и DoT 853 — приложения не могут обойти DNS приложения и слить телеметрию мимо VPN", s.blockTrackers) { v -> set { it.copy(blockTrackers = v) } }
         Toggle("Ускорение телефона", "Кэш DNS снижает повторные ожидания. MTU выбирается по сети (1280–1400), без гигантских пакетов. Это оптимизация VPN, не ускорение других приложений", s.turbo) { v -> set { it.copy(turbo = v) } }
         var lim by remember(s.monthLimitGb) { mutableStateOf(if (s.monthLimitGb > 0) s.monthLimitGb.toString() else "") }

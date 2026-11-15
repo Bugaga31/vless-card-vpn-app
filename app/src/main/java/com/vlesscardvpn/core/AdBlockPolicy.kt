@@ -3,6 +3,8 @@ package com.vlesscardvpn.core
 import java.io.File
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 /** «Авто-блокировщик рекламы»: the bundled geosite blocks the categories the APK shipped with,
  * this layer adds a live list that refreshes itself in the background (AdGuard DNS filter mirrors)
@@ -52,7 +54,13 @@ object AdBlockPolicy {
 
     /** Merged (seed + fetched) blocking list; public like Tunnel's running state, tests swap it directly. */
     @Volatile var current: List<String> = emptyList()
-    @Volatile var status = Status()
+
+    /** Status lives in a StateFlow so the settings screen can show it live. */
+    private val _status = MutableStateFlow(Status())
+    var status: Status
+        get() = _status.value
+        set(value) { _status.value = value }
+    val statusFlow: StateFlow<Status> get() = _status
 
     fun isDue(now: Long, at: Long = status.fetchedAt): Boolean = at == 0L || now - at >= REFRESH_MS
 
