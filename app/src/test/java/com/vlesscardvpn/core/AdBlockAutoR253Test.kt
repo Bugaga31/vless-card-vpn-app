@@ -106,13 +106,13 @@ private fun adRuleDomains(config: JSONObject): List<String>? {
             val onDomains = adRuleDomains(on)
             checkNotNull(onDomains)
             assertTrue(onDomains.contains("domain:example-ads.example.com"))
-            assertTrue(onDomains.size > AdBlockPolicy.SEED.size)
 
             AdBlockPolicy.current = emptyList()
             val off = JSONObject(XrayConfigBuilder.vpnConfig(listOf(server to null), Settings(blockAds = true), 1080))
             val offDomains = adRuleDomains(off)
             checkNotNull(offDomains)
             assertFalse(offDomains.contains("domain:example-ads.example.com"))
+            assertTrue(onDomains.size > offDomains.size) // the live list actually grows the rule
         } finally { AdBlockPolicy.current = previous }
     }
 
