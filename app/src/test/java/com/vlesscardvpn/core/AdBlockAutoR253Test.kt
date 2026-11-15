@@ -7,6 +7,7 @@ import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
+import java.nio.file.Files
 
 class AdBlockAutoR253Test {
     private val reality = "vless://11111111-2222-3333-4444-555555555555@1.2.3.4:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.microsoft.com&fp=chrome&pbk=SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc&sid=6ba85179e30d4fc2&type=tcp#AD"
@@ -16,7 +17,7 @@ private fun adRuleDomains(config: JSONObject): List<String>? {
         val rules = config.getJSONObject("routing").getJSONArray("rules")
         for (i in 0 until rules.length()) {
             val r = rules.getJSONObject(i)
-            if (r.optString("outboundTag") != "block" || !r.has("domain")) continue
+            if (r.optString("outboundTag") != "block" || !r.has("domain") || r.has("network")) continue
             val d = r.getJSONArray("domain")
             if (d.length() > 0 && d.getString(0) == "geosite:category-ads-all") return (0 until d.length()).map { d.getString(it) }
         }
@@ -77,8 +78,18 @@ private fun adRuleDomains(config: JSONObject): List<String>? {
     @Test fun dueWhenNeverFetchedOrStale() {
         assertTrue(AdBlockPolicy.isDue(1_000, 0))
         assertTrue(AdBlockPolicy.isDue(AdBlockPolicy.REFRESH_MS - 1, 0)) // never fetched: always due
-        assertFalse(AdBlockPolicy.isDue(100, 100 + AdBlockPolicy.REFRESH_MS - 1))
-        assertTrue(AdBlockPolicy.isDue(100, 100 + AdBlockPolicy.REFRESH_MS))
+        assertFalse(AdBlockPolicy.isDue(100 + AdBlockPolicy.REFRESH_MS - 1, 100))
+        assertTrue(AdBlockPolicy.isDue(100 + AdBlockPolicy.REFRESH_MS, 100))
+    }
+
+    @Test fun safeListBeatsFetchedFalsePositives() {
+        val merged = AdBlockPolicy.merged(AdBlockPolicy.SEED.take(2) + listOf(
+            "phishing.github.com", "ads.accounts.google.com", "sso.passport.yandex.ru", "realads.example"))
+        assertFalse(merged.any { it.endsWith(".github.com") })
+        assertFalse(merged.any { it.endsWith(".accounts.google.com") })
+        assertFalse(merged.any { it.endsWith(".passport.yandex.ru") })
+        assertTrue("realads.example" in merged)
+        assertTrue("doubleclick.net" in merged) // seed untouched by the whitelist
     }
 
     @Test fun thinFetchIsRejected() {
@@ -94,14 +105,14 @@ private fun adRuleDomains(config: JSONObject): List<String>? {
             val on = JSONObject(XrayConfigBuilder.vpnConfig(listOf(server to null), Settings(blockAds = true), 1080))
             val onDomains = adRuleDomains(on)
             checkNotNull(onDomains)
-            assertTrue(onDomains!!.contains("domain:example-ads.example.com"))
+            assertTrue(onDomains.contains("domain:example-ads.example.com"))
             assertTrue(onDomains.size > AdBlockPolicy.SEED.size)
 
             AdBlockPolicy.current = emptyList()
             val off = JSONObject(XrayConfigBuilder.vpnConfig(listOf(server to null), Settings(blockAds = true), 1080))
             val offDomains = adRuleDomains(off)
             checkNotNull(offDomains)
-            assertFalse(offDomains!!.contains("domain:example-ads.example.com"))
+            assertFalse(offDomains.contains("domain:example-ads.example.com"))
         } finally { AdBlockPolicy.current = previous }
     }
 
@@ -110,7 +121,7 @@ private fun adRuleDomains(config: JSONObject): List<String>? {
     }
 
     @Test fun loadRoundTripsSavedFile() {
-        val dir = createTempDir("adblock")
+        val dir = Files.createTempDirectory("adblock").toFile()
         try {
             val list = AdBlockPolicy.merged(listOf("roundtrip.example") + AdBlockPolicy.SEED.take(5))
             val now = 1_700_000_000_000

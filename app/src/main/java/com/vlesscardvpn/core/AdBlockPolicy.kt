@@ -1,6 +1,8 @@
 package com.vlesscardvpn.core
 
 import java.io.File
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 /** «Авто-блокировщик рекламы»: the bundled geosite blocks the categories the APK shipped with,
  * this layer adds a live list that refreshes itself in the background (AdGuard DNS filter mirrors)
@@ -19,9 +21,21 @@ object AdBlockPolicy {
         "https://cdn.jsdelivr.net/gh/AdguardTeam/FiltersRegistry@master/filters/filter_15_DnsFilter/filter_15_DnsFilter.txt",
     )
 
+    /** Second list: the AdGuard mobile filter, fetched in parallel; both merge in. */
+    val MOBILE_SOURCES = listOf(
+        "https://adguardteam.github.io/HostlistsRegistry/filters/filter_2.txt",
+        "https://cdn.jsdelivr.net/gh/AdguardTeam/FiltersRegistry@master/filters/filter_2_MobileFilter/filter_2.txt",
+    )
+
     /** Resolvers are how the tunnel itself resolves; a list entry naming one must never block it. */
     val NEVER_BLOCK = setOf("dns.google", "cloudflare-dns.com", "one.one.one.one", "dns.quad9.net",
         "dns.adguard-dns.com", "common.dot.dns.yandex.net")
+
+    /** Sign-in, payment and download infrastructure the public lists sometimes flag by mistake;
+     * a false positive here breaks a site so hard it reads like the VPN is at fault. */
+    val SAFE = setOf("accounts.google.com", "appleid.apple.com", "login.microsoftonline.com",
+        "login.live.com", "id.vk.com", "passport.yandex.ru", "oauth.yandex.ru",
+        "github.com", "gitlab.com", "stackexchange.com", "wikipedia.org")
 
     /** Curated seed: major ad exchanges and mobile ad networks, in addition to geosite. */
     val SEED = listOf("doubleclick.net", "googlesyndication.com", "googleadservices.com", "google-analytics.com",
@@ -62,8 +76,12 @@ object AdBlockPolicy {
         isDue(now) && refresh(dir, now)
 
     suspend fun refresh(dir: File, now: Long = System.currentTimeMillis()): Boolean {
-        val text = AutoSubscriptionFetch.firstUseful(SOURCES) { AutoSubscriptionFetch.text(it) } ?: return false
-        val list = merged(parse(text))
+        val texts = coroutineScope {
+            val dns = async { AutoSubscriptionFetch.firstUseful(SOURCES) { AutoSubscriptionFetch.text(it) } }
+            val mobile = async { AutoSubscriptionFetch.firstUseful(MOBILE_SOURCES) { AutoSubscriptionFetch.text(it) } }
+            listOfNotNull(dns.await(), mobile.await())
+        }
+        val list = merged(texts.flatMap { parse(it) })
         if (list.size < MIN_USEFUL_DOMAINS + SEED.size) return false
         current = list
         status = Status(now, list.size)
@@ -71,9 +89,11 @@ object AdBlockPolicy {
         return true
     }
 
-    /** Seed first (never lost to a fetch), deduped, capped; resolvers and their subdomains excluded. */
+    /** Seed first (never lost to a fetch), deduped, capped; resolvers, safe-list domains and
+     * their subdomains excluded. */
     fun merged(fetched: List<String>): List<String> = (SEED + fetched).asSequence()
         .filter { it !in NEVER_BLOCK && NEVER_BLOCK.none { r -> it == r || it.endsWith(".$r") } }
+        .filter { it !in SAFE && SAFE.none { s -> it.endsWith(".$s") } }
         .distinct().take(MAX_DOMAINS).toList()
 
     /** AdGuard/hosts syntax: ||domain^ rules, hosts lines, bare domains; wildcards, paths and
