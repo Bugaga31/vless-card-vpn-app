@@ -345,6 +345,11 @@ class TunnelService : VpnService() {
                 com.vlesscardvpn.core.ServerChoice.measuredSpeed(st.state(it.first),network,System.currentTimeMillis()) } else emptyList()
             val downloadLatencies = used.map { st.state(it.first).realMs }
             connectPhase = "config"
+            // Auto ad blocker: restore the last fetched list for this build; refresh runs on its own.
+            if (settings.blockAds) {
+                com.vlesscardvpn.core.AdBlockPolicy.load(filesDir)
+                scope.launch { runCatching { com.vlesscardvpn.core.AdBlockPolicy.refreshIfDue(filesDir) } }
+            }
             if(com.vlesscardvpn.tor.TorRoutePolicy.active(settings)) {
                 com.vlesscardvpn.tor.TorCard.requireOwnedOrFree()
             }

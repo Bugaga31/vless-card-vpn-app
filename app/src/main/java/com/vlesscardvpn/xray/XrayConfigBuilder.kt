@@ -349,7 +349,10 @@ object XrayConfigBuilder {
             if (target.ips.isNotEmpty()) rules.put(serviceRule(JSONObject().put("ip", JSONArray(target.ips))))
         }
         if (useServers) rules.put(toMain(JSONObject().put("domain", JSONArray(com.vlesscardvpn.core.AppWatch.AI_DOMAINS))))
-        if (settings.blockAds) rules.put(JSONObject().put("domain", JSONArray(listOf("geosite:category-ads-all") + YT_ADS)).put("outboundTag", "block"))
+        // The bundled geosite category plus the auto-refreshed live list (AdBlockPolicy): new ad
+        // domains block without an app update. User's «always direct» rules above still win.
+        if (settings.blockAds) rules.put(JSONObject().put("domain", JSONArray(listOf("geosite:category-ads-all") + YT_ADS +
+            com.vlesscardvpn.core.AdBlockPolicy.blocked().map { "domain:$it" })).put("outboundTag", "block"))
         // «Не отслеживаются»: mobile telemetry beacons + encrypted-DNS bypass. Beats RU direct and service pins alike.
         if (settings.blockTrackers) {
             rules.put(JSONObject().put("domain", JSONArray(TRACKERS)).put("outboundTag", "block"))
