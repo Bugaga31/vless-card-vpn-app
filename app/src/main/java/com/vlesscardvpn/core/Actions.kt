@@ -2209,7 +2209,14 @@ object Actions {
             ServerChoice.blended(CloudSpeed.prior(it), st.state(it).evidenceFor(net), now) +
                 .08 * ServerChoice.exploration(st.state(it).evidenceFor(net).checks, total)
         }
-        val candidates = (exploit + listOfNotNull(explore)).take(6)
+        // Probe the whole un-probed pool, diversity-ordered; a hard cap left the tail of an
+        // eight-server catalogue permanently unverified, so the reserve pool never filled.
+        val chosen = LinkedHashSet<String>(exploit.map { it.id })
+        val candidates = buildList {
+            addAll(exploit)
+            explore?.let { if (chosen.add(it.id)) add(it) }
+            ranked.filter { r -> chosen.add(r.id) }.forEach { add(it) }
+        }
         if(candidates.isEmpty()) {reserveStatus.value="Резервы: готовы $warm · нет дополнительных кандидатов в текущем каталоге";return null}
         var found: Server? = null
         val previous = progress.value
