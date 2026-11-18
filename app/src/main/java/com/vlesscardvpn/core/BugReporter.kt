@@ -15,9 +15,10 @@ object BugReporter {
     /** [lastSentAt] counts successful sends; a failed upload retries on the next trigger. */
     fun decide(kind: String, digest: Int, lastSentAt: Long, lastDigest: Int, lastDigestAt: Long,
                sentToday: Int, today: String, sentDay: String, now: Long): Decision = when {
-        now - lastSentAt < MIN_GAP_MS -> Decision(false, "пауза между отчётами")
+        // 0 means "never sent/recorded", not "long ago".
+        lastSentAt > 0 && now - lastSentAt < MIN_GAP_MS -> Decision(false, "пауза между отчётами")
         sentDay == today && sentToday >= MAX_PER_DAY -> Decision(false, "дневной лимит")
-        digest == lastDigest && now - lastDigestAt < DEDUPE_MS -> Decision(false, "такой сбой уже отправлен")
+        lastDigest != 0 && digest == lastDigest && now - lastDigestAt < DEDUPE_MS -> Decision(false, "такой сбой уже отправлен")
         else -> Decision(true, "ok")
     }
 }
