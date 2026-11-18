@@ -14,7 +14,10 @@ object ConnectPolicy {
         budgetMs = if (background) 1800L else QUICK_BUDGET_MS,
     )
     fun requiresBodyProof(earlyHandoff: Boolean) = !earlyHandoff
-    fun requiresTcpFilter(earlyHandoff: Boolean) = !earlyHandoff
+/** A 600 ms TCP pass runs in every wave, the first one included: dead hosts must not burn a full
+ * HTTPS probe budget in their slot before dying. If the filter kills every candidate, quickTest
+ * falls back to the unfiltered list, so TCP-blocked-but-working routes keep their chance. */
+    fun requiresTcpFilter(earlyHandoff: Boolean) = true
     class StartGate {
         private val taken = java.util.concurrent.atomic.AtomicBoolean()
         val started get() = taken.get()
