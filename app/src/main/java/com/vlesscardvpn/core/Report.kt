@@ -37,6 +37,65 @@ object Report {
     fun enabled(ctx: Context) = prefs(ctx).getBoolean("on", true)
     fun setEnabled(ctx: Context, on: Boolean) { prefs(ctx).edit().putBoolean("on", on).apply(); if (!on) { stop(); CloudSpeed.clear(); CloudControl.clear(); CloudSpeed.status.value="Публичное облако отключено" } }
     fun lastText(ctx: Context): String = prefs(ctx).getString("status", "").orEmpty()
+    fun bugsEnabled(ctx: Context) = prefs(ctx).getBoolean("bugs", true)
+    fun setBugsEnabled(ctx: Context, on: Boolean) { prefs(ctx).edit().putBoolean("bugs", on).apply(); if (!on) prefs(ctx).edit().putString("bugQueue", "[]").apply() }
+    fun bugStatus(ctx: Context): String = prefs(ctx).getString("bugStatus", "").orEmpty()
+
+    /** Crash queue: the uncaught handler records it, the next start sends it (the process is dying, no network work here). */
+    fun recordCrash(ctx: Context, kind: String, lines: List<String>) {
+        val p = prefs(ctx)
+        val q = runCatching { org.json.JSONArray(p.getString("bugQueue", "[]")) }.getOrDefault(org.json.JSONArray())
+        q.put(org.json.JSONObject().put("kind", kind).put("at", System.currentTimeMillis())
+            .put("lines", org.json.JSONArray(lines.map { clean(it) }.distinct().take(30))))
+        while (q.length() > 5) q.remove(0)
+        p.edit().putString("bugQueue", q.toString()).apply()
+    }
+
+    /** Send what the crash queue holds; only when a network exists, so an offline start keeps the queue. */
+    fun flushCrashes(ctx: Context) {
+        if (!bugsEnabled(ctx) || !available() || Net.underlying(ctx) == null) return
+        val p = prefs(ctx)
+        val q = runCatching { org.json.JSONArray(p.getString("bugQueue", "[]")) }.getOrDefault(org.json.JSONArray())
+        if (q.length() == 0) return
+        for (i in 0 until q.length()) {
+            val o = q.optJSONObject(i) ?: continue
+            val ls = o.optJSONArray("lines") ?: continue
+            bug(ctx, o.optString("kind", "crash"), (0 until ls.length()).map { ls.optString(it) })
+        }
+        p.edit().putString("bugQueue", "[]").apply()
+    }
+
+    /** Automatic bug report: a crash or a failed connect goes out as its own issue, rate-limited ([BugReporter]). */
+    fun bug(ctx: Context, kind: String, lines: List<String>) {
+        if (!enabled(ctx) || !bugsEnabled(ctx) || !available() || Net.underlying(ctx) == null) return
+        val app = ctx.applicationContext; val p = prefs(app); val now = System.currentTimeMillis()
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(now))
+        val sig = (kind + "\n" + lines.joinToString("\n")).hashCode()
+        val d = BugReporter.decide(kind, sig, p.getLong("bugAt", 0), p.getInt("bugDigest", 0), p.getLong("bugDigestAt", 0),
+            p.getInt("bugDayCount", 0), today, p.getString("bugDay", ""), now)
+        if (!d.send) { p.edit().putString("bugStatus", "сбой не отправлен: ${d.reason}").apply(); return }
+        val body = org.json.JSONObject().put("kind", kind).put("id", anonId(app))
+            .put("v", com.vlesscardvpn.BuildConfig.VERSION_NAME).put("sdk", android.os.Build.VERSION.SDK_INT)
+            .put("net", Net.family(Net.key(app))).put("at", now)
+            .put("lines", org.json.JSONArray(lines.map { clean(it) }.distinct().take(30)))
+        scope.launch {
+            try {
+                val issue = org.json.JSONObject().put("title", "[bug] $kind · ${body.optString("net")} · ${body.optString("v")}")
+                    .put("body", "```json\n$body\n```")
+                call { c -> c.newCall(Request.Builder().url("https://api.github.com/repos/$REPO/issues")
+                    .header("Authorization", "Bearer " + token()).header("Accept", "application/vnd.github+json")
+                    .post(issue.toString().toRequestBody(json)).build()).execute().use { r ->
+                    if (r.code !in 200..201) error("облако ответило ${r.code}") } }
+                p.edit().putLong("bugAt", now).putInt("bugDigest", sig).putLong("bugDigestAt", now)
+                    .putString("bugDay", today)
+                    .putInt("bugDayCount", if (p.getString("bugDay", "") == today) p.getInt("bugDayCount", 0) + 1 else 1)
+                    .putString("bugStatus", "сбой отправлен " + hhmm(now)).apply()
+            } catch (e: Throwable) {
+                if (e !is kotlinx.coroutines.CancellationException)
+                    p.edit().putString("bugStatus", "сбой не отправлен: ${Errors.human(e)}").apply()
+            }
+        }
+    }
 
     fun phoneId(ctx: Context): String = anonId(ctx)
     private fun anonId(ctx: Context): String = prefs(ctx).getString("id", null) ?: java.util.UUID.randomUUID().toString().take(12).also { prefs(ctx).edit().putString("id", it).apply() }
@@ -136,6 +195,7 @@ object Report {
     private fun hhmm(t: Long) = java.text.SimpleDateFormat("dd.MM HH:mm", java.util.Locale.US).format(java.util.Date(t))
 
     private fun send(ctx: Context) {
+        check(Net.underlying(ctx) != null) { "нет сети" }
         runCatching { Brain.save(ctx) }
         val now = System.currentTimeMillis()
         val lines = AppWatch.journal.value.filter { now - it.first < EVERY }.map { it.second }

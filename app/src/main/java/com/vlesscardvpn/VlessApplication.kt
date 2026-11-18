@@ -17,6 +17,18 @@ class VlessApplication : Application() {
         com.vlesscardvpn.watson.WatsonMonitor.start(this)
         runCatching { com.vlesscardvpn.core.DeviceCoach.restoreBackground(this) }
         com.vlesscardvpn.core.Tester.installAuthenticator()
+        // Automatic crash reports: the dying process only records the crash, the next start sends it.
+        val appCtx = this
+        runCatching {
+            val priorHandler = Thread.getDefaultUncaughtExceptionHandler()
+            Thread.setDefaultUncaughtExceptionHandler { t, e ->
+                runCatching { com.vlesscardvpn.core.Report.recordCrash(appCtx, "crash",
+                    listOf("thread=${t.name}", "${e.javaClass.name}: ${e.message ?: ""}") +
+                        e.stackTrace.take(6).map { "${it.className}.${it.methodName}:${it.lineNumber}" }) }
+                priorHandler?.uncaughtException(t, e)
+            }
+        }
+        runCatching { com.vlesscardvpn.core.Report.flushCrashes(this) }
         // widget + quick tile follow the VPN state
         val app = this
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main).launch {

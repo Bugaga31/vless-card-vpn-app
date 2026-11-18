@@ -92,6 +92,7 @@ class TunnelService : VpnService() {
     private var dpi: DpiSet? = null
     private var checkJob: Job? = null
     private var sessionMeterJob: Job? = null
+    @Volatile private var offlineAbort = false
     private var netCallback: ConnectivityManager.NetworkCallback? = null
     private val handoff = NetworkHandoff()
     private var networkRefreshJob: Job? = null
@@ -162,8 +163,8 @@ class TunnelService : VpnService() {
         }
         if (intent?.action != ACTION_PAUSE) { pauseJob?.cancel(); Tunnel.pausedUntil.value = 0 }
         when (intent?.action) {
-            ACTION_PAUSE -> scope.launch { lock.withLock { pause() } }
-            ACTION_STOP -> { hardRestartJob?.cancel(); scope.launch { lock.withLock { teardown("") } ; stopSelf() } }
+            ACTION_PAUSE -> { offlineAbort = true; scope.launch { lock.withLock { pause() } } }
+            ACTION_STOP -> { hardRestartJob?.cancel(); offlineAbort = true; scope.launch { lock.withLock { teardown("") } ; stopSelf() } }
             else -> { // ACTION_START or always-on restart (null intent)
                 foreground("Подключение…")
                 healStep = 0; dpiHeals = 0; connectFails = 0; safeMasks = false
@@ -173,7 +174,7 @@ class TunnelService : VpnService() {
         return START_STICKY
     }
 
-    override fun onRevoke() { hardRestartJob?.cancel(); cancelChainSearch(); scope.launch { lock.withLock { teardown("VPN отключён системой или другим VPN") }; stopSelf() } }
+    override fun onRevoke() { hardRestartJob?.cancel(); cancelChainSearch(); offlineAbort = true; scope.launch { lock.withLock { teardown("VPN отключён системой или другим VPN") }; stopSelf() } }
 
     private var pauseJob: Job? = null
     /** «Пауза 5 минут» (for a bank or a game that hates VPNs): VPN off, the service waits and switches it back on by itself. */
@@ -255,6 +256,22 @@ class TunnelService : VpnService() {
             connectPhase = "selection"
             val st = Store.state.value
             watchNetwork()
+            // No internet: active searches cannot succeed and would only pollute the servers' local
+            // statistics with offline failures. Wait for a network instead (the physical-network
+            // watcher and the user's Stop can interrupt this hold).
+            if (Net.underlying(this) == null) {
+                offlineAbort = false
+                Tunnel.status.value = Tunnel.Status(Tunnel.State.CONNECTING, "Нет сети",
+                    check = "Интернета нет: серверы не проверяю. Подключусь, как только появится сеть.")
+                if (BuildConfig.DEBUG) Log.i("E2E", "connect: offline, holding until a network returns")
+                val deadline = android.os.SystemClock.elapsedRealtime() + 10 * 60_000L
+                while (Net.underlying(this) == null) {
+                    if (offlineAbort) error("Подключение отменено: сети нет")
+                    if (android.os.SystemClock.elapsedRealtime() > deadline) error("Сети нет уже 10 минут: подключение отложено, нажмите «Подключить», когда интернет вернётся")
+                    kotlinx.coroutines.delay(2000)
+                }
+                Tunnel.status.value = Tunnel.Status(Tunnel.State.CONNECTING, "Подключение…", check = "Сеть появилась: продолжаю подключение")
+            }
             val network = Net.key(this)
             var settings = com.vlesscardvpn.tor.TorConnectionPolicy.runtime(
                 com.vlesscardvpn.tor.TorNetworkRecommendations.apply(st.settings, Net.family(network)))
@@ -488,6 +505,10 @@ class TunnelService : VpnService() {
                     connect(); return
                 }
             }
+            // Automatic bug report, but only a real failure: an offline hold or an offline abort
+            // is the network's fault, not the app's, and would only add noise to the cloud.
+            if (Net.underlying(this) != null) com.vlesscardvpn.core.Report.bug(this, "connect",
+                listOf("phase=$connectPhase", com.vlesscardvpn.core.Errors.human(e)))
             teardown(if (e is IllegalStateException) e.message ?: com.vlesscardvpn.core.Errors.human(e) else com.vlesscardvpn.core.Errors.human(e))
             stopSelf()
         }

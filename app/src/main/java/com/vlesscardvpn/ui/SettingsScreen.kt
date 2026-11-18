@@ -73,6 +73,12 @@ fun SettingsScreen(openAssistant: () -> Unit = {}) {
             Toggle("Публичные подсказки Xray", "Проверенные облаком конфигурации, свежие замеры скорости и ограниченные рецепты обхода. Облачные кандидаты ранжируются во всём каталоге и получают места в ограниченных волнах проверки, но доступность и скорость подтверждает телефон. Это не личный GitHub-backup и не гарантия скорости у вашего оператора.", ron) {
                 ron = it; com.vlesscardvpn.core.Report.setEnabled(rctx, it)
             }
+            var bon by remember { mutableStateOf(com.vlesscardvpn.core.Report.bugsEnabled(rctx)) }
+            Toggle("Отчёты о сбоях", "Крахи приложения и неудачные подключения уходят в общее облако анонимно: без сайтов, адресов и длинных чисел. Так ошибки видно раньше и чинятся они быстрее. Не чаще раза в 20 минут и не больше четырёх в день.", bon) {
+                bon = it; com.vlesscardvpn.core.Report.setBugsEnabled(rctx, it)
+            }
+            val bugStatus = com.vlesscardvpn.core.Report.bugStatus(rctx)
+            if (bugStatus.isNotBlank()) Text(bugStatus, fontSize = 12.sp)
             val publicStatus by com.vlesscardvpn.core.CloudSpeed.status.collectAsState()
             Text(publicStatus, fontSize = 12.sp)
             OutlinedButton(onClick = { com.vlesscardvpn.core.Actions.refreshPublicCloud() }, enabled = ron) { Text("Обновить публичные подсказки") }

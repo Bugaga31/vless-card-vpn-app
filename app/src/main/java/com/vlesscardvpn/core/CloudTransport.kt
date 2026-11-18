@@ -23,6 +23,10 @@ object CloudTransport {
             "https://cdn.jsdelivr.net/gh/Bugaga31/vless-card-vpn@servers/$path")
     }
     fun fetch(ctx: Context, path: String, etag: String? = null, valid: (String) -> Unit): Download {
+        // No network at all: neither raw.githubusercontent, nor jsDelivr, nor the SOCKS fallback can
+        // answer. Fail at once instead of burning seconds of timeouts (and never start the local
+        // ByeDPI proxy for a download that cannot succeed).
+        check(Net.underlying(ctx) != null) { "нет сети" }
         val urls = urls(path)
         fun request(client: OkHttpClient, url: String, tag: String?): Download {
             return client.newCall(Request.Builder().url(url).apply { if (tag != null) header("If-None-Match", tag) }.build()).execute().use { r ->
