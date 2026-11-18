@@ -117,11 +117,10 @@ probe() { # $1 = tag ; prints result json
 okprobe() { python3 -c '
 import json,sys
 r=json.loads(sys.argv[1]); res=r.get("results",[])
-def passed(x):
-    # Google bot-throttles CI runner IPs (429 + /sorry/ redirect). The redirect and
-    # body still prove the request traversed the VPN end to end, so it counts.
-    return x["code"]==200 or (x["code"]==429 and "/sorry/" in str(x.get("finalUrl","")))
-ok = r.get("vpn") and len(res)==4 and res[0]["code"]==204 and res[1]["code"]==200 and res[1]["bytes"]>=1048576 and passed(res[2]) and passed(res[3])
+# Google bot-throttles CI runner IPs (429 + /sorry/ redirect). The redirect and
+# body still prove the request traversed the VPN end to end, so it counts.
+google_ok = res[2]["code"]==200 or (res[2]["code"]==429 and "/sorry/" in str(res[2].get("finalUrl","")))
+ok = r.get("vpn") and len(res)==4 and res[0]["code"]==204 and res[1]["code"]==200 and res[1]["bytes"]>=1048576 and google_ok and res[3]["code"]==204
 print(("PASS " if ok else "BAD ")+json.dumps(r)); sys.exit(0 if ok else 1)' "$1"; }
 
 run_case() { # $1 name, $2 state, $3 seconds to wait for the connect result
