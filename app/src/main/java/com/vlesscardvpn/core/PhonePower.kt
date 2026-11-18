@@ -126,6 +126,7 @@ object PhonePower {
         memory = plan.memory
         Thermal.cooling = plan.memory.hot
         state.value = plan
+        EnergyMeter.add(sample.battery, sample.charging, sample.temp, plan.allowLight)
         return plan
     }
 }

@@ -50,6 +50,7 @@ fun WatsonScreen(openPhone:()->Unit) {
     val forecastValidation by PhoneBrain.validation.collectAsState()
     val automaticPower by PhonePower.state.collectAsState()
     val tips by DeviceCoach.advice.collectAsState()
+    val energyHistory by EnergyMeter.samples.collectAsState()
     LaunchedEffect(Unit) {withContext(Dispatchers.IO) {runCatching {DeviceCoach.sample(ctx)}}}
     val autoApps by WatsonMonitor.snapshot.collectAsState()
     val auditStatus by WatsonMonitor.status.collectAsState()
@@ -102,6 +103,7 @@ fun WatsonScreen(openPhone:()->Unit) {
             Text(phoneStatus)
             Text("Подграф FlyWire учится на последующем нагреве и нехватке памяти этого телефона. Не измеряет вирусы или доказанную экономию батареи, не ограничивает проверки VPN и не закрывает приложения.")
             tips.forEach {Text(it.text)}
+            EnergyChart(energyHistory)
         }
         item {OutlinedButton(onClick=openPhone,modifier=Modifier.fillMaxWidth()){Text("Оптимизатор и диагностика телефона")}}
         item {Text("Соединение и выбранные проверки",style=MaterialTheme.typography.titleLarge)
@@ -175,4 +177,22 @@ fun WatsonScreen(openPhone:()->Unit) {
 @Composable
 private fun WatsonFact(f:WatsonFinding) {
     Column(verticalArrangement=Arrangement.spacedBy(3.dp)) {Text(f.title,style=MaterialTheme.typography.titleSmall);Text(f.detail,style=MaterialTheme.typography.bodyMedium)}
+}
+
+@Composable
+private fun EnergyChart(history:List<com.vlesscardvpn.core.EnergyMeter.Sample>) {
+    if(history.size<2) return
+    Text("Батарея за последнее время",style=MaterialTheme.typography.titleSmall)
+    Canvas(Modifier.fillMaxWidth().height(120.dp).semantics{contentDescription="График уровня батареи"}) {
+        val firstAt=history.first().at
+        val span=(history.last().at-firstAt).coerceAtLeast(1L).toFloat()
+        fun x(at:Long)=(at-firstAt).toFloat()/span*size.width
+        fun y(level:Int)=size.height*(1f-level.coerceIn(1,100)/100f)
+        for(i in 1 until history.size) {
+            val a=history[i-1]; val b=history[i]
+            drawLine(if(a.charging) Color(0xFF3E9B4F) else Color(0xFF2E7DDB),
+                Offset(x(a.at),y(a.battery)),Offset(x(b.at),y(b.battery)),strokeWidth=5f)
+        }
+    }
+    Text("Зелёный — на зарядке, синий — от батареи. Хранится только в памяти устройства.",style=MaterialTheme.typography.bodySmall)
 }
