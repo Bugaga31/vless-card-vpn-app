@@ -91,6 +91,7 @@ class TunnelService : VpnService() {
     private var core: XrayCore.Instance? = null
     private var dpi: DpiSet? = null
     private var checkJob: Job? = null
+    private var sessionMeterJob: Job? = null
     private var netCallback: ConnectivityManager.NetworkCallback? = null
     private val handoff = NetworkHandoff()
     private var networkRefreshJob: Job? = null
@@ -420,6 +421,7 @@ class TunnelService : VpnService() {
             if (proxy) route = "Прокси SOCKS5 :${socks.port} · HTTP :${settings.httpPort}" + (if (settings.lanShare) " (для всей сети: ${lanIp() ?: "IP телефона"})" else "") + " · $route"
             val since = if (keepTun && prev.since > 0) prev.since else System.currentTimeMillis()
             if (!keepTun) { com.vlesscardvpn.core.Traffic.start(); Tunnel.rx0 = android.net.TrafficStats.getUidRxBytes(android.os.Process.myUid()); Tunnel.tx0 = android.net.TrafficStats.getUidTxBytes(android.os.Process.myUid()) }
+            if (!keepTun) com.vlesscardvpn.core.SessionMeter.reset()
             connectedElapsed = android.os.SystemClock.elapsedRealtime()
             Tunnel.status.value = Tunnel.Status(Tunnel.State.CONNECTED, "Подключено", route, "Проверяю интернет…", null, since)
             watchScreen()
@@ -432,6 +434,19 @@ class TunnelService : VpnService() {
             // Instant start: DNS and first TLS handshakes fire at once, in parallel — not after the verify.
             scope.launch { kotlinx.coroutines.delay(250); runCatching { warmUp() } }
             scope.launch { kotlinx.coroutines.delay(250); runCatching { com.vlesscardvpn.core.Warmup.warm(socks.port, com.vlesscardvpn.core.Warmup.plan(settings)) } }
+            // Live speed history: the service samples it even when no screen is open, so the
+            // graph on the home screen is already filled when it is opened.
+            sessionMeterJob?.cancel()
+            sessionMeterJob = scope.launch {
+                val uid = android.os.Process.myUid()
+                kotlinx.coroutines.delay(com.vlesscardvpn.core.SessionMeter.SAMPLE_MS)
+                while (true) {
+                    runCatching { com.vlesscardvpn.core.SessionMeter.sample(
+                        android.net.TrafficStats.getUidRxBytes(uid), android.net.TrafficStats.getUidTxBytes(uid),
+                        android.os.SystemClock.elapsedRealtime()) }
+                    kotlinx.coroutines.delay(com.vlesscardvpn.core.SessionMeter.SAMPLE_MS)
+                }
+            }
         } catch (e: Throwable) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             chainChoice = null; usedChain = null
@@ -2033,6 +2048,7 @@ class TunnelService : VpnService() {
         liveJob?.cancel()
         scoutJob?.cancel(); scoutJob=null
         standbyJob?.cancel(); standbyJob=null; standbyAttemptAt=null
+        sessionMeterJob?.cancel(); sessionMeterJob=null
         qualityVerifyJob?.cancel(); qualityVerifyJob=null
         checkJob?.cancel(); watchJob?.cancel(); coverJob?.cancel(); serviceJob?.cancel(); if (error != null) netJob?.cancel()
         if (error != null) { hardRestartJob?.cancel(); healJob?.cancel(); recoveryJob?.cancel() }

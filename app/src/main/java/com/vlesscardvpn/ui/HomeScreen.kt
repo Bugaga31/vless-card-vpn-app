@@ -182,11 +182,12 @@ fun HomeScreen(onConnect: () -> Unit, onDisconnect: () -> Unit, openServers: () 
             val rx = remember(tick) { (android.net.TrafficStats.getUidRxBytes(uid) - Tunnel.rx0).coerceAtLeast(0) }
             val tx = remember(tick) { (android.net.TrafficStats.getUidTxBytes(uid) - Tunnel.tx0).coerceAtLeast(0) }
             val min = remember(tick) { ((System.currentTimeMillis() - status.since) / 60_000).coerceAtLeast(0) }
-            // speed right now: bytes since the previous tick (5 s)
-            val prev = remember { longArrayOf(rx, tx, android.os.SystemClock.elapsedRealtime()) }
-            val now = remember(tick) { val t = android.os.SystemClock.elapsedRealtime(); val dt = (t - prev[2]).coerceAtLeast(1); val r = ((rx - prev[0]) * 8 / dt).coerceAtLeast(0) to ((tx - prev[1]) * 8 / dt).coerceAtLeast(0); prev[0] = rx; prev[1] = tx; prev[2] = t; r }
-            if (tick > 0 && (now.first > 0 || now.second > 0)) Text("Сейчас: ↓ ${Actions.mbps(now.first.toInt())} ↑ ${Actions.mbps(now.second.toInt())}",
+            // Speed is measured by the service (SessionMeter), not by this screen: the line and
+            // the graph are alive even when the screen was closed for a while.
+            val meter by com.vlesscardvpn.core.SessionMeter.state.collectAsState()
+            if (meter.down > 0 || meter.up > 0) Text("Сейчас: ↓ ${Actions.mbps((meter.down * 8 / 1000).toInt())} ↑ ${Actions.mbps((meter.up * 8 / 1000).toInt())}",
                 fontSize = 14.sp, color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
+            SessionSpeedChart(meter.history)
             SessionStats(min, rx, tx, cfg.turbo)
             Text("Оценка счётчиков процесса приложения, не счёт оператора и не объём зарубежного трафика.",
                 style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.fillMaxWidth().padding(top=6.dp))
@@ -418,6 +419,34 @@ private fun pick(c: String, onChange: () -> Unit) {
     Store.update { it.copy(settings = it.settings.copy(country = c)) }
     if (Store.state.value.settings.mode == Mode.AUTO) Actions.selectBest(com.vlesscardvpn.core.AutoEligibility.TOP, close = false)
     onChange()
+}
+
+/** Живой график скорости за сессию: загрузка и отдача, последние минуты; замер делает сервис раз в 5 с. */
+@Composable
+private fun SessionSpeedChart(history: List<com.vlesscardvpn.core.SessionMeter.Sample>) {
+    if (history.size < 2) return
+    val shown = history.takeLast(48)
+    val max = shown.maxOf { maxOf(it.down, it.up) }.coerceAtLeast(1L)
+    val downColor = MaterialTheme.colorScheme.primary
+    val upColor = MaterialTheme.colorScheme.tertiary
+    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().padding(top = 10.dp).height(64.dp)) {
+        val n = shown.size
+        val step = if (n > 1) size.width / (n - 1) else size.width
+        fun speedPath(sel: (com.vlesscardvpn.core.SessionMeter.Sample) -> Long): androidx.compose.ui.graphics.Path {
+            val p = androidx.compose.ui.graphics.Path()
+            shown.forEachIndexed { i, s ->
+                val y = size.height * (1f - sel(s).toFloat() / max.toFloat())
+                if (i == 0) p.moveTo(0f, y) else p.lineTo(i * step, y)
+            }
+            return p
+        }
+        val stroke = androidx.compose.ui.graphics.Stroke(width = 3.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        drawPath(speedPath { it.down }, downColor, style = stroke)
+        drawPath(speedPath { it.up }, upColor, style = stroke)
+    }
+    Text("Скорость за сессию · ↓ загрузка ↑ отдача", fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(top = 2.dp))
 }
 
 /** Session: time and traffic as three tiles. */
