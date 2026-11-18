@@ -72,7 +72,7 @@ object Report {
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(now))
         val sig = (kind + "\n" + lines.joinToString("\n")).hashCode()
         val d = BugReporter.decide(kind, sig, p.getLong("bugAt", 0), p.getInt("bugDigest", 0), p.getLong("bugDigestAt", 0),
-            p.getInt("bugDayCount", 0), today, p.getString("bugDay", ""), now)
+            p.getInt("bugDayCount", 0), today, p.getString("bugDay", "").orEmpty(), now)
         if (!d.send) { p.edit().putString("bugStatus", "сбой не отправлен: ${d.reason}").apply(); return }
         val body = org.json.JSONObject().put("kind", kind).put("id", anonId(app))
             .put("v", com.vlesscardvpn.BuildConfig.VERSION_NAME).put("sdk", android.os.Build.VERSION.SDK_INT)
@@ -88,7 +88,7 @@ object Report {
                     if (r.code !in 200..201) error("облако ответило ${r.code}") } }
                 p.edit().putLong("bugAt", now).putInt("bugDigest", sig).putLong("bugDigestAt", now)
                     .putString("bugDay", today)
-                    .putInt("bugDayCount", if (p.getString("bugDay", "") == today) p.getInt("bugDayCount", 0) + 1 else 1)
+                    .putInt("bugDayCount", if (p.getString("bugDay", "").orEmpty() == today) p.getInt("bugDayCount", 0) + 1 else 1)
                     .putString("bugStatus", "сбой отправлен " + hhmm(now)).apply()
             } catch (e: Throwable) {
                 if (e !is kotlinx.coroutines.CancellationException)
