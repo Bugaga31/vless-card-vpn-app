@@ -18,7 +18,9 @@ object AdaptiveProbeLoad {
 
     fun slotsFor(requested: Int, failureRatio: Double): Int {
         val base = requested.coerceIn(1, 32)
-        return if (failureRatio >= 0.6) maxOf(2, base / 2) else base
+        // Throttling only ever cuts slots; the safety floor of 2 never raises
+        // a request that asked for fewer.
+        return if (failureRatio >= 0.6) maxOf(minOf(2, base), base / 2) else base
     }
 
     /** Call after a wave that ran to completion; an early-stopped wave proves nothing about load. */
