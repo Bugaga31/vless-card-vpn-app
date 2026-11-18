@@ -440,7 +440,7 @@ private fun SessionSpeedChart(history: List<com.vlesscardvpn.core.SessionMeter.S
             }
             return p
         }
-        val stroke = androidx.compose.ui.graphics.Stroke(width = 3.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        val stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
         drawPath(speedPath { it.down }, downColor, style = stroke)
         drawPath(speedPath { it.up }, upColor, style = stroke)
     }
