@@ -139,7 +139,8 @@ private enum class Kind(val title: String) { FRAG("Дробление (TCP)"), L
 @Composable
 fun MaskEditor(base: Mask?, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
-    val b = base ?: Masks.byId("chrome.l2")!!.copy(title = "")
+    val b = base ?: Masks.byId("chrome.l2.b") ?: Masks.byId("chrome.l1") ?: Masks.byId("chrome.n")
+        ?: error("Маскировки не загружены")
     var title by remember { mutableStateOf(if (base?.custom == true) base.title else base?.title?.let { "$it (моя)" } ?: "") }
     var kind by remember { mutableStateOf(when { b.dpi.startsWith("TPWS#") -> Kind.TPWS; b.hasNoise || b.hop.isNotEmpty() -> Kind.NOISE; b.lengths.isNotEmpty() -> Kind.LADDER; b.packets.isNotEmpty() -> Kind.FRAG; else -> Kind.PLAIN }) }
     var fp by remember { mutableStateOf(b.fingerprint.ifEmpty { "chrome" }) }
