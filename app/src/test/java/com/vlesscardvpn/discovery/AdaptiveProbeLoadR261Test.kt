@@ -15,14 +15,16 @@ class AdaptiveProbeLoadR261Test {
      assertTrue(AdaptiveProbeLoad.budgetFor(4500L, 10) <= 4500L + 2500L)
  }
  @Test fun heavyFailureWaveThrottlesNextWave() {
+     AdaptiveProbeLoad.lastFailureRatio = 0.0
      AdaptiveProbeLoad.record(20, 0)
-     assertEquals(0.0, AdaptiveProbeLoad.lastFailureRatio, 1e-9)
+     assertEquals(1.0, AdaptiveProbeLoad.lastFailureRatio, 1e-9)
      assertEquals(5, AdaptiveProbeLoad.slotsFor(10, AdaptiveProbeLoad.lastFailureRatio))
      assertEquals(1, AdaptiveProbeLoad.slotsFor(1, 1.0))
      assertEquals(2, AdaptiveProbeLoad.slotsFor(3, 0.6))
      assertEquals(10, AdaptiveProbeLoad.slotsFor(10, 0.59))
  }
  @Test fun emptyWaveChangesNothing() {
+     AdaptiveProbeLoad.lastFailureRatio = 0.0
      AdaptiveProbeLoad.record(0, 0)
      assertEquals(0.0, AdaptiveProbeLoad.lastFailureRatio, 1e-9)
  }
