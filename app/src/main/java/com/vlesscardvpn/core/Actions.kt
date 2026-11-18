@@ -1895,9 +1895,11 @@ object Actions {
             message = if (earlyHandoff) "${first.map {it.source}.distinct().size} источников · ранее отвечали ${first.count {st.state(it).works || st.state(it).tcpMs>0}} · до $slots параллельно. Приоритет — местная история; каждый маршрут подтверждаем выбранными проверками: ${AutoChecks.label()}." else
                 "Одновременно до $slots · ${cachedGood.size} с недавним подтверждением" +
                     " · выбранный лимит ${st.settings.probeParallel}")
-        val reachable = if (ConnectPolicy.requiresTcpFilter(earlyHandoff)) Tester.fastFilter(ping, foreground = true) else emptyMap()
+        val reachable = if (ConnectPolicy.requiresTcpFilter(earlyHandoff))
+            Tester.fastFilter(ping, budgetMs = AdaptiveProbeLoad.prefilterBudgetMs(slots), foreground = true) else emptyMap()
         if (reachable.isNotEmpty()) Store.setStates(reachable.mapValues { (_, ms) -> { old: com.vlesscardvpn.model.ServerState -> old.copy(tcpMs = ms) } })
-        val available = first.filter { (reachable[it.id] ?: -1) != 0 }.ifEmpty { first }
+        val saturated = AdaptiveProbeLoad.keepTcpFailures(AdaptiveProbeLoad.lastFailureRatio)
+        val available = first.filter { saturated || (reachable[it.id] ?: -1) != 0 }.ifEmpty { first }
         val ordered = available.sortedBy { if (it.id in cachedGood || (reachable[it.id] ?: -1) > 0) 0 else 1 }
         // First connect as soon as one real HTTPS route passes; compare the remaining candidates after the tunnel is up.
         val shortlist = ServerChoice.diverse(ordered, ConnectPolicy.shortlistLimit(firstWaveOnly))

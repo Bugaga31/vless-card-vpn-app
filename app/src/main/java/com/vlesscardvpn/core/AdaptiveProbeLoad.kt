@@ -23,6 +23,15 @@ object AdaptiveProbeLoad {
         return if (failureRatio >= 0.6) maxOf(minOf(2, base), base / 2) else base
     }
 
+    /** The cheap TCP prefilter shares the same uplink: at high parallelism its fixed 600 ms
+     * budget starts marking healthy servers dead, which is exactly the "more checks drop
+     * more servers" complaint. Grow it with the slot count like the probe budget does. */
+    fun prefilterBudgetMs(slots: Int): Long = budgetFor(600L, slots)
+
+    /** After a heavy-failure wave the link is saturated: a prefilter miss is then more likely
+     * a bandwidth victim than a dead route, so keep those candidates demoted instead of dropped. */
+    fun keepTcpFailures(lastFailureRatio: Double): Boolean = lastFailureRatio >= 0.6
+
     /** Call after a wave that ran to completion; an early-stopped wave proves nothing about load. */
     fun record(total: Int, passed: Int) {
         if (total > 0) lastFailureRatio = (total - passed).toDouble() / total
