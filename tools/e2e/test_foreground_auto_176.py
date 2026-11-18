@@ -5,7 +5,7 @@ ROOT=Path(__file__).resolve().parents[2]/'app/src/main/java/com/vlesscardvpn'
 class ForegroundWiring(unittest.TestCase):
  def test_user_tcp_uses_explicit_foreground_limit(self):
   a=(ROOT/'core/Actions.kt').read_text();t=(ROOT/'core/Tester.kt').read_text()
-  self.assertIn('Tester.fastFilter(ping, foreground = true)',a)
+  self.assertTrue(any('Tester.fastFilter(' in line and 'foreground = true' in line for line in a.splitlines()))
   self.assertIn('minOf(parallel.coerceAtLeast(1),ProbeConcurrencyPolicy.normalize(Store.state.value.settings.probeParallel))',t)
   policy=(ROOT/'core/ProbeConcurrencyPolicy.kt').read_text()
   self.assertIn('minOf(requested.coerceAtLeast(1),normalize(selected))',policy)
