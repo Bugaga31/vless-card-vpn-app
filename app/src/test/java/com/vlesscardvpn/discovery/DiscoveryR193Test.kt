@@ -23,7 +23,7 @@ class DiscoveryR193Test {
  @Test fun monochromeTransportKeepsOrder() {val list=(1..8).map {node(it)};assertEquals(list,TransportExploration.merge(list,list,8))}
  @Test fun leaderRetained() {val a=node(1);val b=node(2,"xhttp","tls");assertEquals(a,TransportExploration.merge(listOf(a),listOf(a,b),8).first())}
  @Test fun deepXhttpGetsReservedSlot() {val base=(1..1000).map {node(it)};val x=node(2001,"xhttp","tls");val pick=TransportExploration.merge(base.take(8),base+x,8);assertEquals(x,pick[1]);assertEquals(8,pick.size)}
- @Test fun twoTransportReservationsOnly() {val base=(1..8).map {node(it)};val extra=listOf(node(20,"xhttp","tls"),node(21,"ws","tls"),node(22,"grpc","tls"));val got=TransportExploration.merge(base,base+extra,8);assertEquals(listOf(base.first(),extra[0],extra[1]),got.take(3));assertFalse(extra[2] in got)}
+ @Test fun everyFamilyGetsAReservation() {val base=(1..8).map {node(it)};val extra=listOf(node(20,"xhttp","tls"),node(21,"ws","tls"),node(22,"grpc","tls"));val got=TransportExploration.merge(base,base+extra,8);assertEquals(listOf(base.first(),extra[0],extra[1],extra[2]),got.take(4))}
  @Test fun zeroLimitEmpty() {assertTrue(TransportExploration.merge(listOf(node(1)),listOf(node(1)),0).isEmpty())}
  @Test fun oneSlotKeepsLeader() {val a=node(1);assertEquals(listOf(a),TransportExploration.merge(listOf(a),listOf(a,node(2,"xhttp")),1))}
  @Test fun unknownRankedEndpointNeverInjected() {val a=node(1);assertTrue(TransportExploration.merge(listOf(node(2)),listOf(a),8).isEmpty())}
