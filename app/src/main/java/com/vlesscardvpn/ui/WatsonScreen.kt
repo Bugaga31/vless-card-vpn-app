@@ -51,6 +51,7 @@ fun WatsonScreen(openPhone:()->Unit) {
     val automaticPower by PhonePower.state.collectAsState()
     val tips by DeviceCoach.advice.collectAsState()
     val energyHistory by EnergyMeter.samples.collectAsState()
+    val adaptiveSignal by AdaptiveProbeLoad.signal.collectAsState()
     LaunchedEffect(Unit) {withContext(Dispatchers.IO) {runCatching {DeviceCoach.sample(ctx)}}}
     val autoApps by WatsonMonitor.snapshot.collectAsState()
     val auditStatus by WatsonMonitor.status.collectAsState()
@@ -115,6 +116,11 @@ fun WatsonScreen(openPhone:()->Unit) {
                 else if(fresh==null) "Свежего результата текущего профиля нет. Неизвестность — не успешная проверка."
                 else AutoAdmissionReason.describe(fresh.probe,fresh.profile,fresh.limit))
             Text("Это локальные пробы, не доказательство работы аккаунта, реального звонка или полного пути другого приложения через TUN.",style=MaterialTheme.typography.bodyMedium)
+            adaptiveSignal?.let {sig ->
+                Text("Адаптивный поиск: одновременных проб "+sig.slots+", доля неудач последней волны "+(sig.failureRatio*100).toInt()+"%, бюджет TCP-предфильтра "+sig.prefilterMs+" мс"+
+                    (if(sig.keepTcpFailures) ", перегруженные волны не выкидывают TCP-промахи" else "")+
+                    (if(sig.battery in 1..30 && !sig.charging) ", снижено из-за батареи ("+sig.battery+"%)" else ""),style=MaterialTheme.typography.bodyMedium)
+            }
         }
         item {Text("Приватность VPN",style=MaterialTheme.typography.titleLarge)}
         items(WatsonPolicy.privacy(settings),key={"privacy:"+it.id}) {f->WatsonFact(f)}

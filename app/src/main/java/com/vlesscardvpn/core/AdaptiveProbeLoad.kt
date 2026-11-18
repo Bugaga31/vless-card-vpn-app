@@ -11,6 +11,15 @@ package com.vlesscardvpn.core
 object AdaptiveProbeLoad {
     @Volatile var lastFailureRatio: Double = 0.0
 
+    /** What the Watson screen shows: how the current wave is being shaped. RAM-only. */
+    data class Signal(val slots: Int, val failureRatio: Double, val prefilterMs: Long, val keepTcpFailures: Boolean, val battery: Int, val charging: Boolean)
+    private val _signal = kotlinx.coroutines.flow.MutableStateFlow<Signal?>(null)
+    val signal: kotlinx.coroutines.flow.StateFlow<Signal?> = _signal
+    fun publish(slots: Int, battery: Int, charging: Boolean) {
+        val ratio = lastFailureRatio
+        _signal.value = Signal(slots, ratio, prefilterBudgetMs(slots), keepTcpFailures(ratio), battery, charging)
+    }
+
     fun budgetFor(baseMs: Long, slots: Int): Long {
         val extra = 250L * (slots - 1).coerceIn(0, 10)
         return baseMs + extra

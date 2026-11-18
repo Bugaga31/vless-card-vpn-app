@@ -1918,6 +1918,7 @@ object Actions {
             stopOnSuccess = { onFirst == null || firstFired.get() }) { cohort ->
         val energy = EnergyMeter.current
         val adaptiveSlots = EnergyAdaptivePolicy.scaleSlots(AdaptiveProbeLoad.slotsFor(ProbeConcurrencyPolicy.normalize(st.settings.probeParallel), AdaptiveProbeLoad.lastFailureRatio), energy?.battery ?: -1, energy?.charging ?: false)
+        AdaptiveProbeLoad.publish(adaptiveSlots, energy?.battery ?: -1, energy?.charging ?: false)
         val adaptiveStopAt = if (onFirst != null || firstWaveOnly) fast.stopAfter else Int.MAX_VALUE
         val probed = realTest(cohort, "Авто: проверяю первый быстрый маршрут", big = ConnectPolicy.requiresBodyProof(earlyHandoff), youtube = false, telegram = st.settings.mode == Mode.AUTO,
             attempts = 1, parallel = if(firstWaveOnly) adaptiveSlots else fast.parallel, foreground = firstWaveOnly, stopAfter = adaptiveStopAt,
@@ -1946,6 +1947,7 @@ object Actions {
         val adaptiveStopAt = if (onFirst != null) fast.stopAfter else Int.MAX_VALUE
         val energy = EnergyMeter.current
         val adaptiveSlots = EnergyAdaptivePolicy.scaleSlots(AdaptiveProbeLoad.slotsFor(ProbeConcurrencyPolicy.normalize(st.settings.probeParallel), AdaptiveProbeLoad.lastFailureRatio), energy?.battery ?: -1, energy?.charging ?: false)
+        AdaptiveProbeLoad.publish(adaptiveSlots, energy?.battery ?: -1, energy?.charging ?: false)
         val ok = realTest(ordered, "Авто: проверяю резервные VLESS-маршруты", big = true,
             youtube = false, telegram = st.settings.mode == Mode.AUTO, attempts = 1, parallel = adaptiveSlots, stopAfter = adaptiveStopAt,
             budgetMs = AdaptiveProbeLoad.budgetFor(if (st.settings.mode == Mode.AUTO) 6500L else fast.budgetMs, adaptiveSlots), onFirst = firstCallback, onSuccess = { passed.add(it.id) })
