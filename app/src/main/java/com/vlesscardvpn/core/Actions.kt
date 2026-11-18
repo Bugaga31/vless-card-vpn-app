@@ -1914,11 +1914,15 @@ object Actions {
         val fastOk = ForegroundProbePlan.run(shortlist, firstWaveOnly,
             valid = { Net.key(app) == net && Net.underlying(app)?.toString() == network },
             stopOnSuccess = { onFirst == null || firstFired.get() }) { cohort ->
-        realTest(cohort, "Авто: проверяю первый быстрый маршрут", big = ConnectPolicy.requiresBodyProof(earlyHandoff), youtube = false, telegram = st.settings.mode == Mode.AUTO,
-            attempts = 1, parallel = if(firstWaveOnly) st.settings.probeParallel else fast.parallel, foreground = firstWaveOnly, stopAfter = if (onFirst != null || firstWaveOnly) fast.stopAfter else Int.MAX_VALUE,
-            budgetMs = if (st.settings.mode == Mode.AUTO && firstWaveOnly) ConnectPolicy.FIRST_PROBE_MS else if (st.settings.mode == Mode.AUTO) 6500L else fast.budgetMs, onFirst = firstCallback, onSuccess = { passed.add(it.id) },
+        val slots = AdaptiveProbeLoad.slotsFor(ProbeConcurrencyPolicy.normalize(st.settings.probeParallel), AdaptiveProbeLoad.lastFailureRatio)
+        val stopAt = if (onFirst != null || firstWaveOnly) fast.stopAfter else Int.MAX_VALUE
+        val probed = realTest(cohort, "Авто: проверяю первый быстрый маршрут", big = ConnectPolicy.requiresBodyProof(earlyHandoff), youtube = false, telegram = st.settings.mode == Mode.AUTO,
+            attempts = 1, parallel = if(firstWaveOnly) slots else fast.parallel, foreground = firstWaveOnly, stopAfter = stopAt,
+            budgetMs = AdaptiveProbeLoad.budgetFor(if (st.settings.mode == Mode.AUTO && firstWaveOnly) ConnectPolicy.FIRST_PROBE_MS else if (st.settings.mode == Mode.AUTO) 6500L else fast.budgetMs, if(firstWaveOnly) slots else fast.parallel), onFirst = firstCallback, onSuccess = { passed.add(it.id) },
             onAttempt = {server->if(firstWaveOnly) attempted.add(server.id);statistics?.start()},
             onObservation = {p->statistics?.observe(p.works,p.realMs,p.tgOk,p.tgMs)})
+        if (probed < stopAt) AdaptiveProbeLoad.record(cohort.size, probed)
+        probed
         }
         if (Net.key(app) != net || Net.underlying(app)?.toString() != network) return if (firstWaveOnly) "Сеть изменилась — результаты отброшены" else selectionNetworkChanged()
         if (onFirst != null && firstFired.get()) return "Первый рабочий VLESS-маршрут найден — подключаюсь; сравнение продолжится после запуска"
@@ -1936,9 +1940,12 @@ object Actions {
             }
         }
         attempted.addAll(first.map { it.id });passed.clear()
+        val stopAt = if (onFirst != null) fast.stopAfter else Int.MAX_VALUE
+        val slots = AdaptiveProbeLoad.slotsFor(ProbeConcurrencyPolicy.normalize(st.settings.probeParallel), AdaptiveProbeLoad.lastFailureRatio)
         val ok = realTest(ordered, "Авто: проверяю резервные VLESS-маршруты", big = true,
-            youtube = false, telegram = st.settings.mode == Mode.AUTO, attempts = 1, stopAfter = if (onFirst != null) fast.stopAfter else Int.MAX_VALUE,
-            budgetMs = if (st.settings.mode == Mode.AUTO) 6500L else fast.budgetMs, onFirst = firstCallback, onSuccess = { passed.add(it.id) })
+            youtube = false, telegram = st.settings.mode == Mode.AUTO, attempts = 1, parallel = slots, stopAfter = stopAt,
+            budgetMs = AdaptiveProbeLoad.budgetFor(if (st.settings.mode == Mode.AUTO) 6500L else fast.budgetMs, slots), onFirst = firstCallback, onSuccess = { passed.add(it.id) })
+        if (ok < stopAt) AdaptiveProbeLoad.record(ordered.size, ok)
         if (Net.key(app) != net || Net.underlying(app)?.toString() != network) return selectionNetworkChanged()
         if (onFirst != null && firstFired.get()) return "Найден рабочий VLESS-маршрут — подключаюсь"
         if (ok > 0) {
@@ -1954,7 +1961,8 @@ object Actions {
         val candidates = rest.filter { (tcp[it.id] ?: 0) > 0 }.sortedBy { tcp[it.id] }
         passed.clear()
         val second = realTest(candidates, "Авто: запасные ${candidates.size} маршрутов", big = true, youtube = false, telegram = st.settings.mode == Mode.AUTO,
-            attempts = 1, stopAfter = Int.MAX_VALUE, budgetMs = ConnectPolicy.QUICK_BUDGET_MS,onSuccess={ passed.add(it.id) })
+            attempts = 1, parallel = slots, stopAfter = Int.MAX_VALUE, budgetMs = AdaptiveProbeLoad.budgetFor(ConnectPolicy.QUICK_BUDGET_MS, slots),onSuccess={ passed.add(it.id) })
+        AdaptiveProbeLoad.record(candidates.size, second)
         if (Net.key(app) != net || Net.underlying(app)?.toString() != network) return selectionNetworkChanged()
         if (second > 0) { chooseCompared(candidates.filter { it.id in passed },firstCallback, eligible.filter { it.id !in attempted }); deepPending = true }
         return "Короткая проверка: работают ${ok + second}; остальные серверы не задерживают первый успех"
