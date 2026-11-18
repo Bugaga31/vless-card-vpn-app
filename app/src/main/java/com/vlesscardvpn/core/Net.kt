@@ -15,7 +15,7 @@ object Net {
         else cm.allNetworks.filter { n -> cm.getNetworkCapabilities(n)?.let {
             !it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) && it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         } == true }.sortedByDescending { n ->
-            val caps = cm.getNetworkCapabilities(n)!!
+            val caps = cm.getNetworkCapabilities(n) ?: return@sortedByDescending 0
             (if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) 2 else 0) +
                 (if (current != null && listOf(NetworkCapabilities.TRANSPORT_WIFI, NetworkCapabilities.TRANSPORT_CELLULAR,
                     NetworkCapabilities.TRANSPORT_ETHERNET).any { caps.hasTransport(it) && current.hasTransport(it) }) 1 else 0)
