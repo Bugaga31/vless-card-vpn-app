@@ -8,13 +8,13 @@ import kotlinx.coroutines.flow.asStateFlow
  * optional work the automatic power plan currently allows. No persistence, no network, no IDs. */
 object EnergyMeter {
     const val CAP = 96
-    data class Sample(val at: Long, val battery: Int, val charging: Boolean, val temp: Int, val optionalAllowed: Boolean)
+    data class Sample(val at: Long, val battery: Int, val charging: Boolean, val temp: Double, val optionalAllowed: Boolean)
     private val history = ArrayDeque<Sample>(CAP)
     private val _samples = MutableStateFlow<List<Sample>>(emptyList())
     val samples: StateFlow<List<Sample>> = _samples.asStateFlow()
     val current: Sample? get() = _samples.value.lastOrNull()
     /** [optionalAllowed]: the automatic power plan lets light optional work run right now. */
-    fun add(battery: Int, charging: Boolean, temp: Int, optionalAllowed: Boolean) {
+    fun add(battery: Int, charging: Boolean, temp: Double, optionalAllowed: Boolean) {
         if (battery !in 1..100) return
         val now = System.currentTimeMillis()
         val s = Sample(now, battery, charging, temp, optionalAllowed)
