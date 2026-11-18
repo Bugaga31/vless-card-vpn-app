@@ -628,10 +628,15 @@ class TunnelService : VpnService() {
                 watchdog() // Circuit readiness must be revisited even before the first full probe succeeds.
                 return@launch
             }
-            var p = Tester.probeSocks(port, st.testUrl, big = false, youtube = Tunnel.ytViaDpi, telegram = checkServices, attempts = 1, budgetMs = 6500, autoChecks=profile,user=auth.user,pass=auth.pass)
+            // A route proven seconds ago (reconnect, handoff, a just-verified reserve) gets a shorter
+            // first ping: the full budget only made the user wait for a verdict that was already known.
+            val routeFresh = usedServers.isNotEmpty() && usedServers.all { srv -> Store.state.value.state(srv).works }
+            val routeAge = if (routeFresh) usedServers.maxOf { System.currentTimeMillis() - Store.state.value.state(it).checkedAt } else null
+            var p = Tester.probeSocks(port, st.testUrl, big = false, youtube = Tunnel.ytViaDpi, telegram = checkServices, attempts = 1,
+                budgetMs = com.vlesscardvpn.core.FastVerifyPolicy.budget(routeAge), autoChecks=profile,user=auth.user,pass=auth.pass)
             // right after connecting the first packets may still be on their way (WireGuard/WARP handshake, a slow
             // mobile network): one calm second try before calling the route bad and starting a heal or a reconnect
-            if (!p.works) { delay(3000); if (Tunnel.socks?.port == port) p = Tester.probeSocks(port, st.testUrl, big = false, youtube = Tunnel.ytViaDpi, telegram = checkServices, attempts = 1, budgetMs = 6500, autoChecks=profile,user=auth.user,pass=auth.pass) }
+            if (!p.works) { delay(com.vlesscardvpn.core.FastVerifyPolicy.RETRY_MS); if (Tunnel.socks?.port == port) p = Tester.probeSocks(port, st.testUrl, big = false, youtube = Tunnel.ytViaDpi, telegram = checkServices, attempts = 1, budgetMs = 6500, autoChecks=profile,user=auth.user,pass=auth.pass) }
             if (p.works && checkServices && p.tgOk == false) {
                 delay(1500)
                 if (core !== sampledCore || Tunnel.socks != auth || Net.key(this@TunnelService) != sampledNet ||

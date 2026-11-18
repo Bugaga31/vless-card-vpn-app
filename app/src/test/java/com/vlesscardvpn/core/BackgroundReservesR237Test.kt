@@ -25,7 +25,7 @@ class BackgroundReservesR237Test {
     @Test fun manualModeDoesNotStartAutoScout(){assertFalse(StandbyPreparationPolicy.mayPrepare(false,PowerPolicy.Plan()))}
     @Test fun spareProofWindowMatchesAdmissionCeiling(){assertEquals(300000L,WarmReserveMemory.TTL_MS)}
     @Test fun standbyPassHasBoundedWallTime(){assertEquals(45000L,StandbyPreparationPolicy.PASS_TIMEOUT_MS)}
-    @Test fun passBudgetScalesWithPoolSize(){assertEquals(45000L,StandbyPreparationPolicy.passTimeoutMs(3));assertEquals(45000L,StandbyPreparationPolicy.passTimeoutMs(6));assertEquals(53000L,StandbyPreparationPolicy.passTimeoutMs(7));assertEquals(90000L,StandbyPreparationPolicy.passTimeoutMs(20))}
+    @Test fun passBudgetScalesWithPoolSize(){assertEquals(45000L,StandbyPreparationPolicy.passTimeoutMs(3));assertEquals(45000L,StandbyPreparationPolicy.passTimeoutMs(6));assertEquals(50000L,StandbyPreparationPolicy.passTimeoutMs(7));assertEquals(60000L,StandbyPreparationPolicy.passTimeoutMs(20))}
     @Test fun waveBudgetFollowsTheLivePool(){val s=source("java/com/vlesscardvpn/vpn/TunnelService.kt");assertTrue(s.contains("StandbyPreparationPolicy.passTimeoutMs(Actions.standbyPoolSize(servers))"))}
     @Test fun backgroundWorkNeverChangesUserCeiling(){for(n in listOf(1,3,5,10))assertEquals(n,ProbeConcurrencyPolicy.limit(32,n,PowerPolicy.Plan(allowed=false),false))}
     @Test fun actualServiceCallsPreparation(){val s=source("java/com/vlesscardvpn/vpn/TunnelService.kt");assertTrue(s.contains("Action.PREPARE -> prepareStandbySoon()"));assertTrue(s.contains("Actions.prepareStandby(servers)"));assertFalse(s.contains("Action.PREPARE -> Unit"))}

@@ -7,8 +7,8 @@ object StandbyPreparationPolicy {
     const val ATTEMPT_INTERVAL_MS = 30_000L
     const val PASS_TIMEOUT_MS = 45_000L
     const val BASE_POOL = 6
-    const val EXTRA_CANDIDATE_MS = 8_000L
-    const val MAX_PASS_TIMEOUT_MS = 90_000L
+    const val EXTRA_CANDIDATE_MS = 5_000L
+    const val MAX_PASS_TIMEOUT_MS = 60_000L
     /** One pass must still fit its wall time when the candidate pool is larger than the old six-slot wave. */
     fun passTimeoutMs(candidates: Int): Long =
         (PASS_TIMEOUT_MS + EXTRA_CANDIDATE_MS * (candidates - BASE_POOL).coerceAtLeast(0)).coerceAtMost(MAX_PASS_TIMEOUT_MS)
