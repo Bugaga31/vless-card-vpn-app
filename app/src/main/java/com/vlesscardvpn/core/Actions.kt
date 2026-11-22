@@ -81,14 +81,13 @@ object Actions {
         }
     }
 
-    private fun launch(title: String, supersede: Boolean = false, block: suspend () -> String) {
+    private fun launch(title: String, queue: Boolean = false, block: suspend () -> String) {
         val old = job
         if (old?.isActive == true) {
-            // A stuck or finishing previous action used to swallow the tap silently: the check never started.
-            // A user-initiated connect supersedes the old action instead; it starts when the old one unwinds.
-            if (!supersede) return
-            old.cancel()
-            old.invokeOnCompletion { startAction(title, block) }
+            // 1.2.153 semantics: a running action is never cancelled here.
+            // A queued call (the Connect tap) starts as soon as the running one finishes, so the tap is never swallowed.
+            if (!queue) return
+            old.invokeOnCompletion { cause -> if (cause == null && job === old) startAction(title, block) }
             return
         }
         startAction(title, block)
@@ -1261,7 +1260,7 @@ object Actions {
         val busy = job
         // Instant start: something worked before → connect now; the tunnel itself re-checks, heals and keeps searching.
         if (working.isNotEmpty()) {
-            if (busy?.isActive == true) cancel()
+            if (busy?.isActive == true && progress.value.title == "Фоновая подготовка") cancel()
             val now = System.currentTimeMillis()
             val net = Net.key(app)
             recallNet(net)
@@ -1280,7 +1279,7 @@ object Actions {
             // A changed set requires reconnecting the core; existing TCP sessions may restart.
             if (selectBest(8, close = false, among = working) > 0) {
                 ready()
-                launch("Авто: быстрая проверка", supersede = true) { preflight(ready, connected = true) }
+                launch("Авто: быстрая проверка", queue = true) { preflight(ready, connected = true) }
                 return
             }
         }
@@ -1644,7 +1643,7 @@ object Actions {
         return doAutoPrepare(onReady)
     }
 
-    private fun autoPrepare(onReady: () -> Unit, setNetwork: () -> Unit) = launch("Авто-настройка", supersede = true) {
+    private fun autoPrepare(onReady: () -> Unit, setNetwork: () -> Unit) = launch("Авто-настройка", queue = true) {
         val statistics=AutoSearchStatistics()
         val outcome=AutoSearchCampaign.runPersistent(network = { Net.key(app) + "|" + Net.underlying(app)?.toString() },
             online = { online() }, elapsed = android.os.SystemClock::elapsedRealtime,
