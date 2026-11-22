@@ -37,7 +37,7 @@ class ResponsiveAutoR227Test {
     }
     @Test fun chosenConcurrencyIsNotReducedForFirstCohort() {
         for (n in listOf(1, 3, 5, 10)) assertEquals(n, AutomaticCoachPolicy.nativeCohortSize(n))
-        assertEquals(5, AutomaticCoachPolicy.nativeCohortSize(0))
+        assertEquals(20, AutomaticCoachPolicy.nativeCohortSize(0))
     }
     private fun source(name: String) = listOf(File("src/main/java/com/vlesscardvpn/$name"), File("app/src/main/java/com/vlesscardvpn/$name")).first { it.exists() }.readText()
     @Test fun powerUiRequestsNeverWaitForSynchronousSensors() {
