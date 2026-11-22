@@ -381,7 +381,9 @@ object Actions {
         val chosen=ProbeConcurrencyPolicy.normalize(Store.state.value.settings.probeParallel)
         val tcpSlots=BulkTcpCapacity.current(app,snapshot.settings.bulkTcpParallel)
         if (tcpSlots <= 0) return@launch "Не хватает свободных системных файлов для TCP-проверки. Освободите ресурсы и повторите."
-        doTestAll(targets, realLimit.coerceIn(1,1000), tcpParallel = tcpSlots, realParallel = chosen, realBatch = chosen)
+        // Many selected servers: the real check scales past the selected ceiling (up to 20 at once).
+        val bulk = ProbeConcurrencyPolicy.bulkSlots(chosen, targets.size)
+        doTestAll(targets, realLimit.coerceIn(1,1000), tcpParallel = tcpSlots, realParallel = bulk, realBatch = bulk, ceiling = bulk)
     }
 
     private suspend fun doTestAll(
@@ -391,6 +393,7 @@ object Actions {
         tcpParallel: Int = 192,
         realParallel: Int = 64,
         realBatch: Int = 64,
+        ceiling: Int = 0,
     ): String {
         if (list.isEmpty()) return "Нет серверов — добавьте ссылку или обновите подписки"
         val observed = Net.observation(app) ?: return "Нет доступной сети для проверки"
@@ -442,10 +445,10 @@ object Actions {
         for ((index, wave) in waves.withIndex()) {
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
             if (!valid()) return "Сеть изменилась — проверка остановлена"
-            working += realTest(wave, "Проверка через Xray · волна ${index+1}/${waves.size}", big, attempts = 1, parallel = realParallel, batch = realBatch)
+            working += realTest(wave, "Проверка через Xray · волна ${index+1}/${waves.size}", big, attempts = 1, parallel = realParallel, batch = realBatch, ceiling = ceiling)
         }
         val again = Store.state.value.let { s -> alive.filter { !s.state(it).works } }
-        if (again.isNotEmpty() && again.size <= 6) working += realTest(again, "Повторная проверка", big, attempts = 2, parallel = realParallel, batch = realBatch)
+        if (again.isNotEmpty() && again.size <= 6) working += realTest(again, "Повторная проверка", big, attempts = 2, parallel = realParallel, batch = realBatch, ceiling = ceiling)
         val unknown = tcp.values.count { it < 0 }
         return "Работают: $working из ${alive.size} доступных по TCP (всего ${list.size}); работоспособность проверена через Xray" +
             if (unknown > 0) "; TCP не определён: $unknown — они не помечены нерабочими" else ""
@@ -453,11 +456,11 @@ object Actions {
 
     private suspend fun realTest(servers: List<Server>, title: String, big: Boolean = true, attempts: Int = 2, parallel: Int = 32, youtube: Boolean = true,
                                  telegram: Boolean = youtube, calls: Boolean = false, stopAfter: Int = Int.MAX_VALUE, budgetMs: Long = 0, onFirst: ((Server) -> Unit)? = null, onSuccess: ((Server) -> Unit)? = null,
-                                 batch: Int = 64, foreground: Boolean = false, onAttempt: ((Server)->Unit)? = null, onPrepared: ((Server)->Unit)? = null, onObservation: ((Probe)->Unit)? = null, onCandidateResult: ((Server,Probe,Boolean,String)->Unit)? = null): Int {
+                                 batch: Int = 64, foreground: Boolean = false, onAttempt: ((Server)->Unit)? = null, onPrepared: ((Server)->Unit)? = null, onObservation: ((Probe)->Unit)? = null, onCandidateResult: ((Server,Probe,Boolean,String)->Unit)? = null, ceiling: Int = 0): Int {
         if (servers.isEmpty()) return 0
         val plan = PhonePower.refresh(app)
         val selectedParallel=ProbeConcurrencyPolicy.normalize(Store.state.value.settings.probeParallel)
-        val slots = ProbeConcurrencyPolicy.limit(parallel,selectedParallel,plan,foreground).coerceAtMost(servers.size)
+        val slots = (if (ceiling > 0) parallel.coerceAtMost(ceiling) else ProbeConcurrencyPolicy.limit(parallel,selectedParallel,plan,foreground)).coerceAtMost(servers.size)
         progress.value = progress.value.copy(title = title, done = 0, total = servers.size,
             message = if (foreground) "HTTPS: ${servers.size} в волне · одновременно до $slots" +
                 " · выбранный лимит $selectedParallel" +
@@ -480,7 +483,7 @@ object Actions {
         val firstWinner = java.util.concurrent.atomic.AtomicReference<Server?>(null)
         val warmPassed = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
         try {
-            Tester.real(variants, st.settings.testUrl, port, own.ports, batch = if (onFirst != null) ConnectPolicy.FIRST else batch, parallel = parallel, big = big, youtube = youtube, telegram = telegram, calls = calls, foreground = foreground, attempts = attempts, requireTelegram = st.settings.mode == Mode.AUTO && telegram, autoChecks=profile, stopAfter = stopAfter, budgetMs = budgetMs, onStarted = { i ->
+            Tester.real(variants, st.settings.testUrl, port, own.ports, batch = if (onFirst != null) ConnectPolicy.FIRST else batch, parallel = parallel, ceiling = ceiling, big = big, youtube = youtube, telegram = telegram, calls = calls, foreground = foreground, attempts = attempts, requireTelegram = st.settings.mode == Mode.AUTO && telegram, autoChecks=profile, stopAfter = stopAfter, budgetMs = budgetMs, onStarted = { i ->
                 if(Net.matches(app,observed)) onAttempt?.invoke(variants[i].first)
             }) { i, p ->
                 if (p == Tester.SKIPPED) return@real

@@ -569,7 +569,7 @@ object Tester {
     /** Tests [variants] (server + mask) in parallel through one temporary Xray instance. */
     suspend fun real(
         variants: List<Pair<Server, Mask?>>, testUrl: String, byeDpiPort: Int?, dpiPorts: Map<String, Int> = emptyMap(), youtube: Boolean = true,
-        batch: Int = 32, parallel: Int = 12, attempts: Int = 2, big: Boolean = true, telegram: Boolean = youtube, calls: Boolean = false, foreground: Boolean = false,
+        batch: Int = 32, parallel: Int = 12, ceiling: Int = 0, attempts: Int = 2, big: Boolean = true, telegram: Boolean = youtube, calls: Boolean = false, foreground: Boolean = false,
         /** Early stop: variants for which this returns true are not probed (reported as skipped). */
         requireTelegram: Boolean = false, autoChecks:AutoCheckProfile?=null, skip: (Int) -> Boolean = { false },
         stopAfter: Int = Int.MAX_VALUE,
@@ -586,7 +586,7 @@ object Tester {
             // Bound config/socket footprint too, not merely simultaneous HTTP calls.
             val plan = PhonePower.state.value
             val selectedParallel = Store.state.value.settings.probeParallel
-            val probeLimit = ProbeConcurrencyPolicy.limit(parallel,selectedParallel,plan,foreground)
+            val probeLimit = if (ceiling > 0) parallel.coerceAtMost(ceiling) else ProbeConcurrencyPolicy.limit(parallel,selectedParallel,plan,foreground)
             // Avoid creating 20 idle SOCKS/outbound routes for only five active workers.
             val effectiveBatch = ProbeConcurrencyPolicy.batch(batch,probeLimit)
             for (all in chunks(variants, effectiveBatch)) {
@@ -616,7 +616,7 @@ object Tester {
                 try {
                     coroutineScope {
                         // Re-read device safety after waiting for the shared test-core permit.
-                        val currentLimit=ProbeConcurrencyPolicy.limit(parallel,Store.state.value.settings.probeParallel,PhonePower.state.value,foreground)
+                        val currentLimit=(if (ceiling > 0) parallel.coerceAtMost(ceiling) else ProbeConcurrencyPolicy.limit(parallel,Store.state.value.settings.probeParallel,PhonePower.state.value,foreground))
                         ProbeRace.run(chunk.indices.toList(), currentLimit, stopAfter,
                             skip = { i -> skipped(idx[i]) }, staggerMs = ForegroundProbePlan.staggerMs(foreground,stopAfter),
                             probe = { i -> onStarted?.invoke(idx[i]); CancellableProbe.run { bind -> probeSocks(ports[i], testUrl, big = big, youtube = youtube, telegram = telegram,
