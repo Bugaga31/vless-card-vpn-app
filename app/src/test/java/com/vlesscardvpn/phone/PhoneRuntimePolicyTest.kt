@@ -58,7 +58,7 @@ class PhoneRuntimePolicyTest {
         val c=JSONObject(XrayConfigBuilder.vpnConfig(listOf(node to null),s,null,quietLogs=true))
         assertEquals("error",c.getJSONObject("log").getString("loglevel"))
         val sniff=c.getJSONArray("inbounds").getJSONObject(0).getJSONObject("sniffing")
-        assertTrue(sniff.getBoolean("routeOnly"));assertEquals(2,sniff.getJSONArray("destOverride").length())
+        assertTrue(sniff.getBoolean("routeOnly"));assertEquals(3,sniff.getJSONArray("destOverride").length())
         assertFalse(c.toString().contains("\"loglevel\":\"none\""))
     }
     @Test fun idleOrBackgroundStatusDoesNotRunAnInfiniteAnimation() {

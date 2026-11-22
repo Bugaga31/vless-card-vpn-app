@@ -241,7 +241,12 @@ object XrayConfigBuilder {
         val inSettings = JSONObject().put("udp", true).put("ip", "127.0.0.1")
         if (socks.auth) inSettings.put("auth", "password").put("accounts", arr(JSONObject().put("user", socks.user).put("pass", socks.pass)))
         else inSettings.put("auth", "noauth")
-        fun sniff() = JSONObject().put("enabled", true).put("destOverride", JSONArray(com.vlesscardvpn.core.TransportPolicy.sniff(!settings.blockQuic || com.vlesscardvpn.core.RuWhitelistPolicy.rules(settings).isNotEmpty()))).put("routeOnly", true)
+        // Chrome stalls on HTTP/3 whose QUIC packets are silently blackholed: it keeps retrying HTTP/3 before
+        // falling back to TCP. Real VLESS/WARP servers carry UDP 443 inside the encrypted tunnel, where no DPI
+        // desync is needed, so QUIC goes through instead of being dropped; Tor does not carry UDP. Sniff QUIC
+        // whenever it flows, so domain rules (RU exception, ads, services) apply to those UDP flows too.
+        val quicTunneled = !(settings.torAll && torOn)
+        fun sniff() = JSONObject().put("enabled", true).put("destOverride", JSONArray(com.vlesscardvpn.core.TransportPolicy.sniff(!settings.blockQuic || com.vlesscardvpn.core.RuWhitelistPolicy.rules(settings).isNotEmpty() || (settings.blockQuic && quicTunneled)))).put("routeOnly", true)
         val inbounds = arr(JSONObject().put("tag", "socks").put("listen", "127.0.0.1").put("port", socks.port)
             .put("protocol", "socks").put("settings", inSettings).put("sniffing", sniff()))
         if (torOn) {
@@ -320,14 +325,15 @@ object XrayConfigBuilder {
 
         // RU QUIC exception is scoped before the existing global QUIC block. Preserve
         // ad/tracker blocking for this exception; foreign/pinned QUIC stays blocked as before.
-        if (ruRules.isNotEmpty() && settings.blockQuic) {
+        if (settings.blockQuic) {
             fun quicRule(domains: List<String>, tag: String) = JSONObject().put("network", "udp")
                 .put("port", "443").put("domain", JSONArray(domains)).put("outboundTag", tag)
             if (settings.blockAds) rules.put(quicRule(listOf("geosite:category-ads-all") + YT_ADS, "block"))
             if (settings.blockTrackers) rules.put(quicRule(TRACKERS, "block"))
-            rules.put(quicRule(ruRules, "direct"))
+            if (ruRules.isNotEmpty()) rules.put(quicRule(ruRules, "direct"))
         }
-        if (settings.blockQuic || !useServers) rules.put(JSONObject().put("network", "udp").put("port", "443").put("outboundTag", "block"))
+        if (settings.blockQuic && quicTunneled) rules.put(toMain(JSONObject().put("network", "udp").put("port", "443")))
+        else if (settings.blockQuic || !useServers) rules.put(JSONObject().put("network", "udp").put("port", "443").put("outboundTag", "block"))
         else if (settings.mode == Mode.HYBRID && hybridDomains(settings).isNotEmpty())
             rules.put(JSONObject().put("network", "udp").put("port", "443").put("domain", JSONArray(hybridDomains(settings))).put("outboundTag", "block"))
         // «Сайт не открывается?» — the user's own choice wins over everything below (RU direct, services, hybrid)

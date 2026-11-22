@@ -7,5 +7,5 @@ object VpnRecoveryPolicy {
     fun pauseWatchdog(quiet:Boolean,auto:Boolean)=quiet && !auto
     @Suppress("UNUSED_PARAMETER") fun healthOnly(quiet:Boolean,auto:Boolean)=auto
     fun watchPeriod(requested: Long, auto: Boolean, quiet:Boolean=false) =
-        if(auto && quiet) 20000L else if(auto) requested.coerceIn(10000L,15000L) else requested
+        if(auto && quiet) 20000L else if(auto) requested.coerceIn(6000L,15000L) else requested
 }
