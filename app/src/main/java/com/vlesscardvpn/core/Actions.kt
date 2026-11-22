@@ -2418,7 +2418,7 @@ object Actions {
 
     fun fixAll(then: () -> Unit) = launch("Чиню всё сам") {
         if (!online()) return@launch "Нет активной сети Wi-Fi или мобильных данных. После её появления проверю рабочие VLESS-серверы; прямой обход отключён."
-        val n = runCatching { autoRescue(emptyList(), 3) { step -> progress.value = progress.value.copy(title = "Чиню: $step") } }.getOrDefault(0)
+        val n = runCatching { autoRescue(emptyList(), 3, onStep = { step -> progress.value = progress.value.copy(title = "Чиню: $step") }) }.getOrDefault(0)
         if (n == 0) return@launch "Рабочий VLESS-сервер не найден. Прямой режим отключён; VPN не запускаю. Проверьте подписки или повторите позже."
         android.os.Handler(android.os.Looper.getMainLooper()).post(then)
         "Готово: выбрано рабочих VLESS-серверов $n. Переподключаюсь через проверенный маршрут…"
