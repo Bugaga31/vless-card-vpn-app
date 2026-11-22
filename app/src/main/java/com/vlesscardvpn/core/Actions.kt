@@ -81,8 +81,20 @@ object Actions {
         }
     }
 
-    private fun launch(title: String, block: suspend () -> String) {
-        if (job?.isActive == true) return
+    private fun launch(title: String, supersede: Boolean = false, block: suspend () -> String) {
+        val old = job
+        if (old?.isActive == true) {
+            // A stuck or finishing previous action used to swallow the tap silently: the check never started.
+            // A user-initiated connect supersedes the old action instead; it starts when the old one unwinds.
+            if (!supersede) return
+            old.cancel()
+            old.invokeOnCompletion { startAction(title, block) }
+            return
+        }
+        startAction(title, block)
+    }
+
+    private fun startAction(title: String, block: suspend () -> String) {
         progress.value = Progress(title, running = true)
         job = scope.launch {
             val msg = Store.busy { runCatching { withContext(Dispatchers.IO) { XrayCore.init(app) }; block() }.getOrElse {
@@ -1249,7 +1261,7 @@ object Actions {
         val busy = job
         // Instant start: something worked before → connect now; the tunnel itself re-checks, heals and keeps searching.
         if (working.isNotEmpty()) {
-            if (busy?.isActive == true && progress.value.title == "Фоновая подготовка") cancel()
+            if (busy?.isActive == true) cancel()
             val now = System.currentTimeMillis()
             val net = Net.key(app)
             recallNet(net)
@@ -1268,7 +1280,7 @@ object Actions {
             // A changed set requires reconnecting the core; existing TCP sessions may restart.
             if (selectBest(8, close = false, among = working) > 0) {
                 ready()
-                launch("Авто: быстрая проверка") { preflight(ready, connected = true) }
+                launch("Авто: быстрая проверка", supersede = true) { preflight(ready, connected = true) }
                 return
             }
         }
@@ -1632,7 +1644,7 @@ object Actions {
         return doAutoPrepare(onReady)
     }
 
-    private fun autoPrepare(onReady: () -> Unit, setNetwork: () -> Unit) = launch("Авто-настройка") {
+    private fun autoPrepare(onReady: () -> Unit, setNetwork: () -> Unit) = launch("Авто-настройка", supersede = true) {
         val statistics=AutoSearchStatistics()
         val outcome=AutoSearchCampaign.runPersistent(network = { Net.key(app) + "|" + Net.underlying(app)?.toString() },
             online = { online() }, elapsed = android.os.SystemClock::elapsedRealtime,
