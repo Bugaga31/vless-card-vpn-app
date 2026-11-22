@@ -121,8 +121,13 @@ object PhonePower {
         val s = Store.state.value.settings
         val gaming = GameSession.active()
         if (gaming || sample.lowMemory) lagUntil = now + 120000
-        val plan = PowerPolicy.evaluate(sample.copy(now = now, gaming = gaming, recentLag = now < lagUntil, predictedPressure = s.phoneLearning && s.autoCool && PhoneBrain.reduceOptionalWork(now)), PowerPolicy.Options(s.powerProfile, s.batteryThreshold,
+        val input = sample.copy(now = now, gaming = gaming, recentLag = now < lagUntil, predictedPressure = s.phoneLearning && s.autoCool && PhoneBrain.reduceOptionalWork(now))
+        val drain = AutoEnergyPolicy.drainPerHour(EnergyMeter.samples.value)
+        val effective = AutoEnergyPolicy.resolve(s.powerProfile, input, drain)
+        val pace = AutoEnergyPolicy.pace(drain)
+        val plan = PowerPolicy.evaluate(input, PowerPolicy.Options(effective, s.batteryThreshold,
             s.quietScreen, s.chargeOnly, s.wifiMaintenance, s.protectActiveTraffic, s.autoCool), memory, pauseUntil)
+            .let { if (pace > 1.0) it.copy(loopMs = (it.loopMs * pace).toLong().coerceAtMost(30_000L)) else it }
         memory = plan.memory
         Thermal.cooling = plan.memory.hot
         state.value = plan

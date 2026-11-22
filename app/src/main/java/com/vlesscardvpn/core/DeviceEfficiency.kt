@@ -8,6 +8,7 @@ object DeviceEfficiency {
         quietScreen = true, wifiMaintenance = true, protectActiveTraffic = true)
     /** User-selected presets affect our optional work only, not routing/security/system settings. */
     fun preset(s: Settings, name: String): Settings = when (name) {
+        "auto" -> s.copy(powerProfile = "auto")
         "eco" -> apply(s)
         "balanced" -> s.copy(powerProfile = "balanced")
         "fast" -> s.copy(powerProfile = "fast")

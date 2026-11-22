@@ -297,7 +297,7 @@ data class Settings(
                 oceanBackground = o.optBoolean("oceanBackground", true), oceanMotion = o.optBoolean("oceanMotion", true), welcomeSound = o.optBoolean("welcomeSound", true),
                 phoneLearning = o.optBoolean("phoneLearning", true),
                 automaticSecurityAudit = o.optBoolean("automaticSecurityAudit", true),
-                powerProfile = o.optString("powerProfile", "balanced").takeIf { it in listOf("balanced", "eco", "fast") } ?: "balanced",
+                powerProfile = o.optString("powerProfile", "balanced").takeIf { it in listOf("auto", "balanced", "eco", "fast") } ?: "balanced",
                 batteryThreshold = o.optInt("batteryThreshold", 20).coerceIn(5, 50), quietScreen = o.optBoolean("quietScreen", true),
                 chargeOnly = o.optBoolean("chargeOnly", false), wifiMaintenance = o.optBoolean("wifiMaintenance", true), protectActiveTraffic = o.optBoolean("protectActiveTraffic", true), gpsSpoof = o.optBoolean("gpsSpoof", false), ytDpi = o.optJSONObject("ytDpi")?.let { m -> m.keys().asSequence().associateWith { m.optBoolean(it) } } ?: emptyMap(),
                 netServers = o.optJSONObject("netServers")?.let { m -> m.keys().asSequence().associateWith { k -> m.optJSONArray(k)?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty() } } ?: emptyMap(),

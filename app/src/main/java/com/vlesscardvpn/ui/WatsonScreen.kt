@@ -49,6 +49,8 @@ fun WatsonScreen(openPhone:()->Unit) {
     val phoneStatus by PhoneBrain.status.collectAsState()
     val forecastValidation by PhoneBrain.validation.collectAsState()
     val automaticPower by PhonePower.state.collectAsState()
+    val autoEnergyReason by AutoEnergyPolicy.reason.collectAsState()
+    val autoDrain by AutoEnergyPolicy.drain.collectAsState()
     val tips by DeviceCoach.advice.collectAsState()
     val energyHistory by EnergyMeter.samples.collectAsState()
     val adaptiveSignal by AdaptiveProbeLoad.signal.collectAsState()
@@ -84,6 +86,7 @@ fun WatsonScreen(openPhone:()->Unit) {
             Column(verticalArrangement=Arrangement.spacedBy(6.dp)) {
                 Text("ВАТСОН · автоматическая экономия",style=MaterialTheme.typography.titleMedium)
                 Text(automaticPower.reason,style=MaterialTheme.typography.bodyMedium)
+                Text(autoEnergyReason,style=MaterialTheme.typography.bodyMedium)
                 Text(forecastValidation,style=MaterialTheme.typography.bodySmall)
                 Text("Ограничивается только необязательная работа приложения. Ток зарядки, температура и экономия заряда не гарантируются; VPN и явный поиск сохраняются.",style=MaterialTheme.typography.bodySmall)
             }
@@ -104,7 +107,7 @@ fun WatsonScreen(openPhone:()->Unit) {
             Text(phoneStatus)
             Text("Подграф FlyWire учится на последующем нагреве и нехватке памяти этого телефона. Не измеряет вирусы или доказанную экономию батареи, не ограничивает проверки VPN и не закрывает приложения.")
             tips.forEach {Text(it.text)}
-            EnergyChart(energyHistory)
+            EnergyChart(energyHistory,autoDrain)
         }
         item {OutlinedButton(onClick=openPhone,modifier=Modifier.fillMaxWidth()){Text("Оптимизатор и диагностика телефона")}}
         item {Text("Соединение и выбранные проверки",style=MaterialTheme.typography.titleLarge)
@@ -186,19 +189,24 @@ private fun WatsonFact(f:WatsonFinding) {
 }
 
 @Composable
-private fun EnergyChart(history:List<com.vlesscardvpn.core.EnergyMeter.Sample>) {
+private fun EnergyChart(history:List<com.vlesscardvpn.core.EnergyMeter.Sample>,drain:Double) {
     if(history.size<2) return
     Text("Батарея за последнее время",style=MaterialTheme.typography.titleSmall)
-    Canvas(Modifier.fillMaxWidth().height(120.dp).semantics{contentDescription="График уровня батареи"}) {
+    Canvas(Modifier.fillMaxWidth().height(120.dp).semantics{contentDescription="График уровня батареи и температуры"}) {
         val firstAt=history.first().at
         val span=(history.last().at-firstAt).coerceAtLeast(1L).toFloat()
         fun x(at:Long)=(at-firstAt).toFloat()/span*size.width
         fun y(level:Int)=size.height*(1f-level.coerceIn(1,100)/100f)
+        fun yTemp(t:Double)=size.height*(1f-((t-25.0).coerceIn(0.0,20.0)/20.0).toFloat())
+        for(i in 1 until history.size) {
+            val a=history[i-1]; val b=history[i]
+            if(a.temp>0&&b.temp>0) drawLine(Color(0xFFE8710A),Offset(x(a.at),yTemp(a.temp)),Offset(x(b.at),yTemp(b.temp)),strokeWidth=3f)
+        }
         for(i in 1 until history.size) {
             val a=history[i-1]; val b=history[i]
             drawLine(if(a.charging) Color(0xFF3E9B4F) else Color(0xFF2E7DDB),
                 Offset(x(a.at),y(a.battery)),Offset(x(b.at),y(b.battery)),strokeWidth=5f)
         }
     }
-    Text("Зелёный — на зарядке, синий — от батареи. Хранится только в памяти устройства.",style=MaterialTheme.typography.bodySmall)
+    Text(if(drain>=0) "Синий — от батареи, зелёный — на зарядке, оранжевый — температура 25–45 °C. Расход вне зарядки: примерно "+"%.1f".format(java.util.Locale.ROOT,drain)+"%/ч. Хранится только в памяти устройства." else "Зелёный — на зарядке, синий — от батареи, оранжевый — температура 25–45 °C. Хранится только в памяти устройства.",style=MaterialTheme.typography.bodySmall)
 }

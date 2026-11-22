@@ -35,6 +35,8 @@ fun DeviceScreen(openWatson:()->Unit = {}) {
     val brain by PhoneBrain.status.collectAsState()
     val settings by Store.settings.collectAsState()
     val power by PhonePower.state.collectAsState()
+    val autoEnergy by AutoEnergyPolicy.effective.collectAsState()
+    val autoEnergyReason by AutoEnergyPolicy.reason.collectAsState()
     val reserveStatus by Actions.reserveStatus.collectAsState()
     val lastExit by produceState<String?>(initialValue = null, ctx) {
         value = withContext(Dispatchers.IO) { AppExitHint.last(ctx) }
@@ -67,12 +69,12 @@ fun DeviceScreen(openWatson:()->Unit = {}) {
         message = "Профиль применён без перезапуска VPN. Изменена только работа VLESS Card."
     }
 
-    LaunchedEffect(owner, settings.powerProfile, power.allowLight) {
+    LaunchedEffect(owner, settings.powerProfile, autoEnergy, power.allowLight) {
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             refreshApps()
             while (true) {
                 withContext(Dispatchers.IO) { runCatching { DeviceCoach.sample(ctx) } }
-                kotlinx.coroutines.delay(ExperiencePolicy.sampleMs(settings.powerProfile == "eco", power.allowLight))
+                kotlinx.coroutines.delay(ExperiencePolicy.sampleMs(AutoEnergyPolicy.ecoNow(settings.powerProfile), power.allowLight))
             }
         }
     }
@@ -150,7 +152,7 @@ fun DeviceScreen(openWatson:()->Unit = {}) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                listOf("eco" to "Экономный", "balanced" to "Баланс", "fast" to "Быстрый").forEach { (id, title) ->
+                listOf("auto" to "Авто", "eco" to "Экономный", "balanced" to "Баланс", "fast" to "Быстрый").forEach { (id, title) ->
                     FilterChip(
                         selected = settings.powerProfile == id,
                         onClick = { setProfile(id) },
@@ -169,6 +171,7 @@ fun DeviceScreen(openWatson:()->Unit = {}) {
             }
             Text(
                 when (settings.powerProfile) {
+                    "auto" -> autoEnergyReason
                     "eco" -> "Экономный профиль убирает анимацию волн и снижает необязательную нагрузку."
                     "fast" -> "Быстрый профиль увеличивает пределы только при нормальном состоянии телефона."
                     else -> "Баланс выбирает умеренную нагрузку и сохраняет защитные ограничения."

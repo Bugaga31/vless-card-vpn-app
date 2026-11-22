@@ -222,7 +222,7 @@ fun SettingsScreen(openAssistant: () -> Unit = {}) {
         Hint(sensors)
         Hint("Лимиты проверок: TCP ${power.tcpParallel}, реальные ${power.realParallel}. VPN и аварийное восстановление не отключаются. Это не физическое охлаждение и не ускоритель других приложений.")
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("balanced" to "Баланс", "eco" to "Экономия", "fast" to "Быстрее").forEach { (id, title) ->
+            listOf("auto" to "Авто", "balanced" to "Баланс", "eco" to "Экономия", "fast" to "Быстрее").forEach { (id, title) ->
                 FilterChip(selected = s.powerProfile == id, onClick = { set { it.copy(powerProfile = id) } }, label = { Text(title) })
             }
         }
