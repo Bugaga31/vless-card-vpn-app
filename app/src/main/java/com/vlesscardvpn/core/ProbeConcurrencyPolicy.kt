@@ -11,4 +11,9 @@ object ProbeConcurrencyPolicy {
     fun limit(requested:Int,selected:Int,plan:PowerPolicy.Plan,foreground:Boolean):Int =
         minOf(requested.coerceAtLeast(1),normalize(selected))
     fun batch(requested:Int,slots:Int):Int = minOf(requested.coerceAtLeast(1),slots.coerceAtLeast(1))
+/** The cheap TCP prefilter opens raw sockets, not server routes: it is bounded by the device
+ * plan (PowerPolicy tcpParallel / foregroundTcpParallel), never by the user's route-parallel
+ * ceiling. Foreground stays gentler for UI smoothness; the plan's hot/eco/pressure tiers still win. */
+    fun tcpWindow(requested:Int,plan:PowerPolicy.Plan,foreground:Boolean):Int =
+        minOf(requested.coerceAtLeast(1),(if (foreground) plan.foregroundTcpParallel else plan.tcpParallel).coerceAtLeast(1))
 }

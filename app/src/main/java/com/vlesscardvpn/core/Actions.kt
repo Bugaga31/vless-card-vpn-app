@@ -1962,7 +1962,7 @@ object Actions {
         val rest = ServerChoice.diverse(eligible.filter { it.id !in attempted }, ConnectPolicy.NEXT)
         attempted.addAll(rest.map { it.id })
         val tcp = java.util.concurrent.ConcurrentHashMap<String, Int>(); val states = StateBatch()
-        Tester.tcp(rest, parallel = 32, timeoutMs = 1500) { server, ms -> tcp[server.id] = ms; states.put(server.id) { it.copy(tcpMs = ms) } }
+        Tester.tcp(rest, parallel = 32, timeoutMs = 1500, foreground = firstWaveOnly) { server, ms -> tcp[server.id] = ms; states.put(server.id) { it.copy(tcpMs = ms) } }
         states.flush()
         val candidates = rest.filter { (tcp[it.id] ?: 0) > 0 }.sortedBy { tcp[it.id] }
         passed.clear()

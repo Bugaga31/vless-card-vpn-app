@@ -56,9 +56,9 @@ object Tester {
      * TCP ping of all servers at once: non-blocking sockets in one selector (no thread per server — the 96-thread pool
      * used to cap it), names resolved in parallel first (each distinct name once). Results arrive as they come.
      */
-    suspend fun tcp(servers: List<Server>, parallel: Int = 96, timeoutMs: Int = 2500, onEach: (Server, Int) -> Unit) = coroutineScope {
+    suspend fun tcp(servers: List<Server>, parallel: Int = 96, timeoutMs: Int = 2500, foreground: Boolean = false, onEach: (Server, Int) -> Unit) = coroutineScope {
         val names = servers.map { it.address }.distinct()
-        val limit = minOf(parallel.coerceAtLeast(1),ProbeConcurrencyPolicy.normalize(Store.state.value.settings.probeParallel))
+        val limit = ProbeConcurrencyPolicy.tcpWindow(parallel, PhonePower.state.value, foreground)
         val sem = Semaphore(minOf(32, limit))
         val ips = linkedMapOf<String, InetAddress?>()
         for (chunk in names.chunked(64)) {
@@ -113,7 +113,10 @@ object Tester {
     /** Bounded TCP hint, never an authenticated Reality/TLS verdict. Timeout is unknown, not a blacklist. */
     suspend fun fastFilter(servers: List<Server>, budgetMs: Long = 600, foreground: Boolean = false): Map<String, Int> = coroutineScope {
         val plan = PhonePower.state.value
-        val sem = Semaphore(ProbeConcurrencyPolicy.normalize(Store.state.value.settings.probeParallel))
+        // Raw TCP sockets are not routes: window follows the device plan, not the route ceiling,
+        // so a 20-host wave finishes in about one timeout instead of four.
+        val sem = Semaphore(ProbeConcurrencyPolicy.tcpWindow(servers.size, plan, foreground))
+        val dnsSem = Semaphore(16)
         // Shared only inside this call: no stale DNS cache crosses a network change.
         val names=servers.filter {it.isTcpBased}.map {RuntimeProbeAddress.host(it.address)}.distinct()
             .associateWith {host->async(start=kotlinx.coroutines.CoroutineStart.LAZY) {ProbeDns.resolve(host,budgetMs)}}
@@ -121,7 +124,7 @@ object Tester {
             val result = if (!server.isTcpBased) -1 else {
                 val began=System.nanoTime()
                 kotlinx.coroutines.withTimeoutOrNull(budgetMs.coerceIn(1L,60000L)) {
-                    val addresses=names.getValue(RuntimeProbeAddress.host(server.address)).await()
+                    val addresses=dnsSem.withPermit { names.getValue(RuntimeProbeAddress.host(server.address)).await() }
                         ?: return@withTimeoutOrNull -1
                     val remaining=budgetMs-(System.nanoTime()-began)/1000000L
                     StaggeredConnect.hint(DualStackOrder.order(addresses),remaining) {address,left->
