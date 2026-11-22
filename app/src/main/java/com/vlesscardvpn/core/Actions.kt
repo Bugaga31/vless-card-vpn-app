@@ -1396,7 +1396,7 @@ object Actions {
      * 3 — bounded subscription rescue and the next small wave. Returns the number of servers selected (0 = nothing found).
      */
     suspend fun autoRescue(failed: Collection<Server>, level: Int, attempted: MutableSet<String> = mutableSetOf(),
-        onStep: (String) -> Unit = {}): Int = coroutineScope {
+        onStep: (String) -> Unit = {}, wave: Int = 0): Int = coroutineScope {
         val now = System.currentTimeMillis()
         val net=Net.key(app);val handle=Net.underlying(app)?.toString()
         fun valid()=Net.key(app)==net && Net.underlying(app)?.toString()==handle
@@ -1456,7 +1456,7 @@ object Actions {
                     onStep("проверяю следующую порцию доступных хостов")
                     // Do not exclude all cloud-blocked endpoints or return to the same failed primary.
                     attempted.addAll(ids)
-                    quickTest(Store.state.value.servers,attempted=attempted,firstWaveOnly=true,allowMaskRescue=false)
+                    quickTest(Store.state.value.servers,attempted=attempted,firstWaveOnly=true,allowMaskRescue=false,wave=wave)
                 }
             }
             val selected=selectFresh()
@@ -1836,7 +1836,7 @@ object Actions {
     }
 
     /** Cached cloud/network candidates first; no whole-catalog TCP scan or video downloads before first connect. */
-    suspend fun quickTest(list: List<Server>, onFirst: ((Server) -> Boolean)? = null, attempted: MutableSet<String> = mutableSetOf(), firstWaveOnly: Boolean = false, allowMaskRescue: Boolean = true, statistics: AutoSearchStatistics? = null): String {
+    suspend fun quickTest(list: List<Server>, onFirst: ((Server) -> Boolean)? = null, attempted: MutableSet<String> = mutableSetOf(), firstWaveOnly: Boolean = false, allowMaskRescue: Boolean = true, statistics: AutoSearchStatistics? = null, wave: Int = 0): String {
         CloudSpeed.loadCached(app)
         val st = Store.state.value
         val untried = list.filter { it.id !in attempted }
@@ -1856,7 +1856,7 @@ object Actions {
         }.mapTo(HashSet()) {it.id}
         val readyCatalog=DiscoveryWindow.pool(allEligible,{it.id in coolingIds},{serviceRanks.getValue(it.id)})
         val rememberedIds = (st.settings.netServers[net] ?: st.settings.netServers[Net.family(net)]).orEmpty().toSet()
-        val eligible = if (firstWaveOnly) (CloudControl.ranked(readyCatalog, 32) +
+        val eligible = if (firstWaveOnly) (WaveRotation.rotated(CloudControl.ranked(readyCatalog, 32), wave * 5) +
             readyCatalog.filter { it.id in rememberedIds }.take(32) + TransportExploration.representatives(readyCatalog) +
             ServerChoice.diverse(readyCatalog, AutoDiscoveryPolicy.RANKING_WINDOW))
             .distinctBy { it.id }.take(AutoDiscoveryPolicy.RANKING_WINDOW) else readyCatalog

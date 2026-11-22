@@ -1807,6 +1807,8 @@ class TunnelService : VpnService() {
             var identity=Net.key(this@TunnelService) to Net.underlying(this@TunnelService)?.toString()
             var resetAt=android.os.SystemClock.elapsedRealtime()
             var waitedOffline=false
+            var lastCatalogIds: Set<String> = Store.state.value.servers.mapTo(HashSet()) { it.id }
+            var lastPhysical: Pair<String, String?>? = null
             while (tun != null && Tunnel.socks != null && Tunnel.status.value.state == Tunnel.State.CONNECTED) {
                 // Reached only after confirmed failure (VoiceCallPolicy already protects uncertain calls).
                 // A broken route must not wait forever merely because AudioManager still reports a call.
@@ -1861,7 +1863,7 @@ class TunnelService : VpnService() {
                 }
                 val sampledCore=core;val auth=Tunnel.socks
                 val level = if (attempt == 0) 1 else 3
-                val found = try { recoveryCpuLease { Store.busy { Actions.autoRescue(usedServers, level, attempted=attempted, onStep={healStatus("Восстановление: $it")}) } } }
+                val found = try { recoveryCpuLease { Store.busy { Actions.autoRescue(usedServers, level, attempted=attempted, onStep={healStatus("Восстановление: $it")}, wave=attempt) } } }
                     catch(e:kotlinx.coroutines.CancellationException) {throw e}
                     catch(e:Exception) {Log.w(TAG,"Auto recovery failed",e);0}
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
@@ -1879,8 +1881,17 @@ class TunnelService : VpnService() {
                     if (awaitingVerification) break
                 }
                 attempt++
-                healStatus("Рабочего VLESS-сервера пока нет. Трафик остаётся заблокированным; повторный поиск через 1 с")
-                delay(com.vlesscardvpn.core.VpnRecoveryPolicy.RETRY_MS)
+                // A refreshed catalog or a network change brings new material: retry at the fast
+                // pace at once. An outage where nothing changed backs off, so a settled failure
+                // stops burning battery on identical full scans every second.
+                val idsNow = Store.state.value.servers.mapTo(HashSet()) { it.id }
+                val catalogChanged = idsNow != lastCatalogIds
+                lastCatalogIds = idsNow
+                val networkChanged = lastPhysical != null && physical != lastPhysical
+                lastPhysical = physical
+                val wait = com.vlesscardvpn.core.RescueRetryPolicy.delayMs(attempt, catalogChanged, networkChanged)
+                healStatus("Рабочего VLESS-сервера пока нет. Трафик остаётся заблокированным; повторный поиск через ${com.vlesscardvpn.core.RescueRetryPolicy.describe(wait)}")
+                delay(wait)
             }
         }
     }
