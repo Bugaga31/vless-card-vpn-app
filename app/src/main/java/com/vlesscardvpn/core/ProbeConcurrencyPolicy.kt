@@ -4,7 +4,7 @@ package com.vlesscardvpn.core
  * The explicit user ceiling is not reduced by app power/call policies. Android still owns system thermal safety.
  */
 object ProbeConcurrencyPolicy {
-    const val DEFAULT = 5
+    const val DEFAULT = 20
     val choices = listOf(1, 3, 5, 10, 20)
     fun normalize(value:Int):Int = value.takeIf {it in choices} ?: DEFAULT
     @Suppress("UNUSED_PARAMETER")

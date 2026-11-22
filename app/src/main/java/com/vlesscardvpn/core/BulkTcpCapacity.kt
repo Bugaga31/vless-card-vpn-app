@@ -6,7 +6,7 @@ import java.io.File
 
 /** TCP-only bulk checks use non-blocking sockets. Keep descriptors for VPN, DNS, files and Android. */
 object BulkTcpCapacity {
-    const val DEFAULT = 250
+    const val DEFAULT = 1000
     const val MAX = 1000
     private const val RESERVED_FDS = 128L
     val choices = listOf(50, 100, 250, 500, 1000)

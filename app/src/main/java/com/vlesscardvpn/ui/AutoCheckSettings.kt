@@ -34,7 +34,7 @@ fun AutoCheckSettings() {
                     modifier=Modifier.semantics {contentDescription="Проверять одновременно до $n серверов"},label={Text(n.toString())})
             }
         }
-        Text("По умолчанию 5. Сейчас до $slots одновременно; выбранный предел $parallel. Новый лимит действует со следующей волны. Внутренняя оптимизация, нагрев и звонки больше не урезают выбранное число; системные ограничения Android остаются.",style=MaterialTheme.typography.bodyMedium)
+        Text("По умолчанию 20. Сейчас до $slots одновременно; выбранный предел $parallel. Новый лимит действует со следующей волны. Внутренняя оптимизация, нагрев и звонки больше не урезают выбранное число; системные ограничения Android остаются.",style=MaterialTheme.typography.bodyMedium)
         Text("В одном тестовом ядре создаются только проверяемые маршруты. Первый подходящий сервер останавливает ненужные пробы; это снижает лишнюю нагрузку, но не гарантирует отсутствие нагрева.",style=MaterialTheme.typography.bodyMedium)
         Text("Быстрая массовая проверка TCP",style=MaterialTheme.typography.titleMedium)
         Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {

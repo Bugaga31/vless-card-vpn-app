@@ -27,7 +27,7 @@ data class AutoCheckProfile(val selected:Set<String>) {
     }
     companion object {
         val allowed=setOf("telegram","stability","voice","discord","youtube","instagram")
-        val defaults=setOf("telegram","stability","voice","discord")
+        val defaults=setOf("telegram")
         fun of(values:Collection<String>)=AutoCheckProfile(values.filter {it in allowed || SiteCheckCatalog.fromId(it)!=null}.toSet())
     }
 }

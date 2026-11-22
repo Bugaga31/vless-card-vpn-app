@@ -218,7 +218,7 @@ data class Settings(
         /** "https://www.Site.com/path" → "site.com"; null when it is not a domain. */
         fun host(input: String): String? = input.trim().lowercase().substringAfter("://").substringBefore('/').substringBefore('?')
             .substringBefore(':').removePrefix("www.").trim('.').takeIf { Regex("^[a-z0-9а-яё-]+(\\.[a-z0-9а-яё-]+)+$").matches(it) }
-        const val REV = 79
+        const val REV = 80
         /** YouTube video, pictures and player — what «Умный YouTube» sends through the DPI bypass. */
         val YT_DOMAINS = listOf("geosite:youtube", "domain:googlevideo.com", "domain:ytimg.com", "domain:ggpht.com", "domain:youtu.be", "domain:youtube.com")
         /**
@@ -239,6 +239,11 @@ data class Settings(
             // Add the working requested source once, keeping manual links and later removals.
             // Empty/unavailable sources remain opt-in in the catalog.
             if (s.rev < 79 && Subs.OVI_FULL !in s.subscriptions) s = s.copy(subscriptions = s.subscriptions + Subs.OVI_FULL)
+            // 80 — faster defaults once: max TCP bulk, max probe pool, Telegram-only auto checks (users pick the rest).
+            if (s.rev < 80) s = s.copy(
+                probeParallel = if (s.probeParallel == 5) 20 else s.probeParallel,
+                bulkTcpParallel = if (s.bulkTcpParallel == 250) 1000 else s.bulkTcpParallel,
+                autoChecks = if (s.autoChecks == setOf("telegram","stability","voice","discord")) setOf("telegram") else s.autoChecks)
             return if (s.rev >= REV) s else s.copy(rev = REV)
         }
         const val DPI_AUTO = "auto"
