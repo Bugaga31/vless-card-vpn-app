@@ -7,21 +7,21 @@ import org.junit.Test
 
 class ProbeConcurrencyR210Test {
     private fun plan(input:PowerPolicy.Input=PowerPolicy.Input(1),options:PowerPolicy.Options=PowerPolicy.Options())=PowerPolicy.evaluate(input,options)
-    @Test fun defaultIsFiveForFreshAndMigratedSettings() {
-        assertEquals(5,Settings().probeParallel)
-        assertEquals(5,Settings.fromJson(JSONObject()).probeParallel)
+    @Test fun defaultIsTwentyForFreshAndMigratedSettings() {
+        assertEquals(20,Settings().probeParallel)
+        assertEquals(20,Settings.fromJson(JSONObject()).probeParallel)
     }
     @Test fun everyChoiceSurvivesJsonRoundTrip() {
-        for(n in listOf(1,3,5,10)) assertEquals(n,Settings.fromJson(Settings(probeParallel=n).toJson()).probeParallel)
+        for(n in listOf(1,3,5,10,20)) assertEquals(n,Settings.fromJson(Settings(probeParallel=n).toJson()).probeParallel)
     }
-    @Test fun malformedValuesFallBackToFive() {
+    @Test fun malformedValuesFallBackToTwenty() {
         for(n in listOf(Int.MIN_VALUE,-1,0,2,4,6,100,Int.MAX_VALUE)) {
-            assertEquals(5,ProbeConcurrencyPolicy.normalize(n))
-            assertEquals(5,Settings.fromJson(JSONObject().put("probeParallel",n)).probeParallel)
+            assertEquals(20,ProbeConcurrencyPolicy.normalize(n))
+            assertEquals(20,Settings.fromJson(JSONObject().put("probeParallel",n)).probeParallel)
         }
     }
     @Test fun normalForegroundHonorsEverySelectedLimit() {
-        for(n in listOf(1,3,5,10)) assertEquals(n,ProbeConcurrencyPolicy.limit(20,n,plan(),true))
+        for(n in listOf(1,3,5,10,20)) assertEquals(n,ProbeConcurrencyPolicy.limit(20,n,plan(),true))
     }
     @Test fun defaultNormalForegroundAndBackgroundStayAtFive() {
         assertEquals(5,ProbeConcurrencyPolicy.limit(20,5,plan(),true))

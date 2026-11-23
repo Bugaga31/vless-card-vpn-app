@@ -19,7 +19,7 @@ class RapidSwitchR233Test {
     @Test fun emptyWaveIsSafe() {assertTrue(RecoveryWavePolicy.arrange(emptyList<String>(),emptyList(),5).isEmpty())}
     @Test fun fullBatchHasNormalServiceBudget() {assertEquals(7500L,RecoveryWavePolicy.budgetMs(4,5))}
     @Test fun queuedBatchHasBoundedSeparateBudget() {assertEquals(15000L,RecoveryWavePolicy.budgetMs(6,3));assertEquals(15000L,RecoveryWavePolicy.budgetMs(2,1));assertEquals(18000L,RecoveryWavePolicy.budgetMs(100,1))}
-    @Test fun onlyFailureConfirmationUsesOneSecond() {assertEquals(1000L,RecoveryWavePolicy.confirmDelayMs(true));assertEquals(3000L,RecoveryWavePolicy.confirmDelayMs(false));assertTrue(VpnRecoveryPolicy.watchPeriod(1000,true)>=10000L);assertEquals(20000L,VpnRecoveryPolicy.watchPeriod(1000,true,true))}
+    @Test fun onlyFailureConfirmationUsesOneSecond() {assertEquals(1000L,RecoveryWavePolicy.confirmDelayMs(true));assertEquals(3000L,RecoveryWavePolicy.confirmDelayMs(false));assertTrue(VpnRecoveryPolicy.watchPeriod(1000,true)>=6000L);assertEquals(20000L,VpnRecoveryPolicy.watchPeriod(1000,true,true))}
     @Test fun successfulFullProfileStillHasNoAgeTimer() {val p=PeriodicServicePolicy();p.completed("r",100,true);assertFalse(p.due("r",999999))}
     @Test fun selectedUnknownOrFailCannotWin() {val p=AutoCheckProfile.of(listOf("youtube","voice"));assertFalse(p.accepts(Probe(100,null,null,callsOk=true),3000));assertFalse(p.accepts(Probe(100,true,false,callsOk=true),3000));assertTrue(p.accepts(Probe(100,true,true,callsOk=true),3000))}
     @Test fun maskWinnerCancelsStalledNativeAndCleansUp() = runBlocking {

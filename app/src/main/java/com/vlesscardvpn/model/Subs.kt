@@ -11,6 +11,11 @@ object Subs {
     const val VVG0 = "https://sub.vvg0.ru/sub/servers.txt"
     const val LVPN_RE = "https://gist.githubusercontent.com/Darlene-Alderson-FSOCIETY/11956d8ddb4246d0b58f075b31126157/raw/LVPN_Telegram_RE_s_B.txt"
     const val CLOUD_WORKS = "https://raw.githubusercontent.com/Bugaga31/vless-card-vpn/servers/works.txt"
+    // Free public collectors (2026-11-23): thousands of configs updated daily by their maintainers.
+    const val TAHERI_MIX = "https://raw.githubusercontent.com/MhdiTaheri/V2rayCollector/main/sub/mix"
+    const val TAHERI_VLESS = "https://raw.githubusercontent.com/MhdiTaheri/V2rayCollector/main/sub/vless"
+    const val ETERNITY = "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/Eternity"
+    const val NOMOREWALLS = "https://raw.githubusercontent.com/peasoft/NoMoreWalls/master/list_raw.txt"
     const val RU = "Для России"
     const val WL = "Белые списки (мобильный интернет)"
     const val WORLD = "Мировые сборники (много, но слабее)"
@@ -38,6 +43,10 @@ object Subs {
         SubSource(gh("Bugaga31/vless-card-vpn/servers/alive.txt"), "VLESS Card · облачная проверка (весь мир)", WORLD),
         SubSource(gh("Epodonios/v2ray-configs/main/All_Configs_Sub.txt"), "Epodonios", WORLD),
         SubSource(gh("mahdibland/V2RayAggregator/master/sub/sub_merge.txt"), "V2RayAggregator", WORLD),
+        SubSource(TAHERI_MIX, "V2rayCollector · все протоколы (ежедневно)", WORLD, default = true),
+        SubSource(TAHERI_VLESS, "V2rayCollector · только VLESS", WORLD),
+        SubSource(ETERNITY, "Eternity · vmess/ss сборник", WORLD),
+        SubSource(NOMOREWALLS, "NoMoreWalls · мировой сборник", WORLD),
         SubSource(gh("MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/all_sub.txt"), "MatinGhanbari", WORLD),
         SubSource(gh("sakha1370/OpenRay/main/output/all_valid_proxies.txt"), "OpenRay (проверенные)", WORLD),
         SubSource(gh("ebrasha/free-v2ray-public-list/main/V2Ray-Config-By-EbraSha.txt"), "EbraSha", WORLD),

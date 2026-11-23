@@ -217,7 +217,7 @@ data class Settings(
         /** "https://www.Site.com/path" → "site.com"; null when it is not a domain. */
         fun host(input: String): String? = input.trim().lowercase().substringAfter("://").substringBefore('/').substringBefore('?')
             .substringBefore(':').removePrefix("www.").trim('.').takeIf { Regex("^[a-z0-9а-яё-]+(\\.[a-z0-9а-яё-]+)+$").matches(it) }
-        const val REV = 81
+        const val REV = 82
         /** YouTube video, pictures and player — what «Умный YouTube» sends through the DPI bypass. */
         val YT_DOMAINS = listOf("geosite:youtube", "domain:googlevideo.com", "domain:ytimg.com", "domain:ggpht.com", "domain:youtu.be", "domain:youtube.com")
         /**
@@ -248,6 +248,8 @@ data class Settings(
                 val miss = listOf(Subs.VVG0, Subs.LVPN_RE).filter { it !in s.subscriptions }
                 if (miss.isNotEmpty()) s = s.copy(subscriptions = s.subscriptions + miss)
             }
+            // 82 — free public collectors join by default once (2026-11-23); a later removal by the user is respected.
+            if (s.rev < 82 && Subs.TAHERI_MIX !in s.subscriptions) s = s.copy(subscriptions = s.subscriptions + Subs.TAHERI_MIX)
             return if (s.rev >= REV) s else s.copy(rev = REV)
         }
         const val DPI_AUTO = "auto"
