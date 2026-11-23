@@ -49,6 +49,14 @@ fun SettingsScreen(openAssistant: () -> Unit = {}) {
         val storageError by Store.storageError.collectAsState()
         if (storageError.isNotEmpty()) Text(storageError, color = Bad, fontSize = 13.sp)
         RuWhitelistCard(s, onGeoChange = { enabled -> set { it.copy(ruAllDirect = enabled) } }) { enabled -> set { it.copy(ruWhitelist = enabled) } }
+        Group("Белые списки оператора") {
+            val wl by com.vlesscardvpn.core.Whitelist.last.collectAsState()
+            val sc = rememberCoroutineScope(); var checking by remember { mutableStateOf(false) }
+            Hint(wl?.let { com.vlesscardvpn.core.Whitelist.report(it) } ?: "Проверяет напрямую (мимо VPN), открываются ли только разрешённые сайты — так понятно, какие способы обхода вообще могут работать в этой сети. На мобильном автопилот проверяет сам при смене сети.")
+            Button(onClick = { checking = true; sc.launch { com.vlesscardvpn.core.Whitelist.check(); checking = false } }, enabled = !checking, modifier = Modifier.fillMaxWidth()) {
+                Text(if (checking) "Проверяю…" else "Проверить сеть")
+            }
+        }
         TextButton(onClick=openAssistant) { Text("Открыть помощника") }
         Group("Автоматический выбор") { AutoCheckSettings(); HorizontalDivider(); AutoLatencySettings() }
         Group("Проверка через VLESS") {

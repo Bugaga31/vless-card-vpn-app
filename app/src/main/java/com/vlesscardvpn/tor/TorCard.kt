@@ -88,7 +88,8 @@ object TorCard {
      */
     fun torrcEmbedded(ctx: android.content.Context, controlPort: Int = DEFAULT_CONTROL_PORT,
                       socksPort: Int = DEFAULT_SOCKS_PORT, bridge: String = "none", bridgeLines: List<String> = emptyList(),
-                      upstreamHttpPort: Int = DEFAULT_UPSTREAM_PORT, ptProxyPort: Int = DEFAULT_PT_UPSTREAM_PORT): String {
+                      upstreamHttpPort: Int = DEFAULT_UPSTREAM_PORT, ptProxyPort: Int = DEFAULT_PT_UPSTREAM_PORT,
+                      exitCountry: String = ""): String {
         val dir = java.io.File(ctx.filesDir, "tor")
         val geoDir=java.io.File(dir,"geo198").apply {mkdirs()}
         for(name in listOf("geoip","geoip6")) {
@@ -102,6 +103,7 @@ object TorCard {
         return torrcEmbedded(java.io.File(dir, "data").absolutePath, java.io.File(dir, "cookie").absolutePath,
             nativeDir(ctx), controlPort, socksPort, bridge, bridgeLines, upstreamHttpPort, ptProxyPort) +
             TorCountryPolicy.config(com.vlesscardvpn.core.Store.state.value.settings.torExitCountries) +
+            exitNodesText(if (com.vlesscardvpn.core.Store.state.value.settings.torExitCountries.isBlank()) exitCountry else "") +
             "GeoIPFile ${java.io.File(geoDir, "geoip").absolutePath}\nGeoIPv6File ${java.io.File(geoDir, "geoip6").absolutePath}\n"
     }
 
@@ -110,7 +112,7 @@ object TorCard {
                       controlPort: Int = DEFAULT_CONTROL_PORT,
                       socksPort: Int = DEFAULT_SOCKS_PORT, bridge: String = "none",
                       bridgeLines: List<String> = emptyList(), upstreamHttpPort: Int = DEFAULT_UPSTREAM_PORT,
-                      ptProxyPort: Int = DEFAULT_PT_UPSTREAM_PORT): String = buildString {
+                      ptProxyPort: Int = DEFAULT_PT_UPSTREAM_PORT, exitCountry: String = ""): String = buildString {
         require(bridge in EMBEDDED_BRIDGES) { "Unsupported embedded Tor transport" }
         require(upstreamHttpPort in 1024..65535 && upstreamHttpPort != socksPort && upstreamHttpPort != controlPort)
         require(ptProxyPort in 1024..65535 && ptProxyPort != socksPort && ptProxyPort != controlPort && ptProxyPort != upstreamHttpPort)
@@ -141,10 +143,10 @@ object TorCard {
     fun startEmbedded(ctx: android.content.Context, bridge: String = "none",
                       controlPort: Int = DEFAULT_CONTROL_PORT, socksPort: Int = DEFAULT_SOCKS_PORT,
                       bridgeLines: List<String> = emptyList(), upstreamHttpPort: Int = DEFAULT_UPSTREAM_PORT,
-                      ptProxyPort: Int = DEFAULT_PT_UPSTREAM_PORT): java.lang.Process {
+                      ptProxyPort: Int = DEFAULT_PT_UPSTREAM_PORT, exitCountry: String = ""): java.lang.Process {
         if (android.os.Build.VERSION.SDK_INT < 26) error("Embedded Tor requires Android 8+")
         val dir = java.io.File(ctx.filesDir, "tor"); dir.mkdirs()
-        java.io.File(dir, "torrc").writeText(torrcEmbedded(ctx, controlPort, socksPort, bridge, bridgeLines, upstreamHttpPort, ptProxyPort))
+        java.io.File(dir, "torrc").writeText(torrcEmbedded(ctx, controlPort, socksPort, bridge, bridgeLines, upstreamHttpPort, ptProxyPort, exitCountry))
         val b = java.lang.ProcessBuilder(listOf(java.io.File(nativeDir(ctx), "libTor.so").absolutePath,
             "-f", java.io.File(dir, "torrc").absolutePath))
             .redirectOutput(java.io.File(dir, "tor.log")).redirectErrorStream(true)
@@ -175,7 +177,7 @@ object TorCard {
     fun ensureStarted(ctx: android.content.Context, bridge: String = "none",
                       controlPort: Int = DEFAULT_CONTROL_PORT, socksPort: Int = DEFAULT_SOCKS_PORT,
                       bridgeLines: List<String> = emptyList(), upstreamHttpPort: Int = DEFAULT_UPSTREAM_PORT,
-                      ptProxyPort: Int = DEFAULT_PT_UPSTREAM_PORT): java.lang.Process? {
+                      ptProxyPort: Int = DEFAULT_PT_UPSTREAM_PORT, exitCountry: String = ""): java.lang.Process? {
         val ticket = generation.get()
         require(bridge in setOf("obfs4","webtunnel") && bridgeLines.isNotEmpty()) {
             "Tor требует мосты obfs4 или WebTunnel; запуск без мостов запрещён"
@@ -185,7 +187,7 @@ object TorCard {
         }
         require(bridge in EMBEDDED_BRIDGES) { "Unsupported embedded Tor transport" }
         validateBridgeLines(bridgeLines)
-        val desired = torrcEmbedded(ctx, controlPort, socksPort, bridge, bridgeLines, upstreamHttpPort, ptProxyPort)
+        val desired = torrcEmbedded(ctx, controlPort, socksPort, bridge, bridgeLines, upstreamHttpPort, ptProxyPort, exitCountry)
         val owned = embedded
         if (owned != null) {
             val same = runCatching { java.io.File(torrcPath(ctx)).readText() == desired }.getOrDefault(false)
@@ -217,7 +219,7 @@ object TorCard {
         }
         check(available(ctx)) { "Embedded Tor unavailable for this device" }
         check(generation.get() == ticket) { "Tor startup cancelled" }
-        val process = startEmbedded(ctx, bridge, controlPort, socksPort, bridgeLines, upstreamHttpPort, ptProxyPort)
+        val process = startEmbedded(ctx, bridge, controlPort, socksPort, bridgeLines, upstreamHttpPort, ptProxyPort, exitCountry)
         stopping = false
         embedded = process
         if (generation.get() != ticket) { process.destroy(); error("Tor startup cancelled") }
@@ -244,7 +246,8 @@ object TorCard {
      */
     fun torrc(controlPort: Int = DEFAULT_CONTROL_PORT, socksPort: Int = DEFAULT_SOCKS_PORT,
               allowLan: Boolean = false, bridge: String = "none", bridgeLines: List<String> = emptyList(),
-              upstreamHttpPort: Int = DEFAULT_UPSTREAM_PORT, ptProxyPort: Int = DEFAULT_PT_UPSTREAM_PORT): String = buildString {
+              upstreamHttpPort: Int = DEFAULT_UPSTREAM_PORT, ptProxyPort: Int = DEFAULT_PT_UPSTREAM_PORT,
+              exitCountry: String = ""): String = buildString {
         require(bridge in BRIDGES) { "Unsupported Tor transport" }
         require(upstreamHttpPort in 1024..65535 && upstreamHttpPort != socksPort && upstreamHttpPort != controlPort)
         require(ptProxyPort in 1024..65535 && ptProxyPort != socksPort && ptProxyPort != controlPort && ptProxyPort != upstreamHttpPort)
@@ -272,3 +275,10 @@ object TorCard {
         }
     }
 }
+
+    /** `ExitNodes {ru}` + StrictNodes: выход строго в выбранной стране (пусто — Tor решает сам). */
+    private fun exitNodesText(country: String): String {
+        val cc = country.trim().lowercase()
+        if (cc.length != 2 || !cc.all { it in 'a'..'z' }) return ""
+        return "ExitNodes {$cc}\nStrictNodes 1\n"
+    }

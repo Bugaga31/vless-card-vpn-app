@@ -1077,7 +1077,8 @@ class TunnelService : VpnService() {
                 val startedLines = runCatching { com.vlesscardvpn.tor.TorBridgeCatalog.selected(active.torBridgeLines, active.torBridge) }.getOrNull()
                     ?: com.vlesscardvpn.tor.TorBridgeUpdates.adoptBuiltins(this@TunnelService, active.torBridge)
                     ?: com.vlesscardvpn.tor.TorBridgeCatalog.selected(Store.state.value.settings.torBridgeLines, active.torBridge)
-                val started = com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, active.torBridge, bridgeLines = startedLines)
+                val started = com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, active.torBridge, bridgeLines = startedLines,
+                    exitCountry = if (active.torExitCountries.isBlank()) active.torExit else "")
                 // A reused daemon still holds connections through the previous core's upstream listeners.
                 val upstreamChanged = started == null && torUpstreamCore !== core
                 if (started != null) { torHealth = com.vlesscardvpn.tor.TorBridgeHealth(); com.vlesscardvpn.tor.TorBridgeUpdates.resetHealth() }
@@ -1126,7 +1127,7 @@ class TunnelService : VpnService() {
                     if (!com.vlesscardvpn.tor.TorCard.portUp()) {
                         runCatching { com.vlesscardvpn.tor.TorCard.stopEmbedded() }
                         val cur = Store.state.value.settings
-                        runCatching { com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, cur.torBridge, bridgeLines = runCatching { com.vlesscardvpn.tor.TorBridgeCatalog.selected(cur.torBridgeLines, cur.torBridge) }.getOrDefault(emptyList())) }
+                        runCatching { com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, cur.torBridge, bridgeLines = runCatching { com.vlesscardvpn.tor.TorBridgeCatalog.selected(cur.torBridgeLines, cur.torBridge) }.getOrDefault(emptyList()), exitCountry = if (cur.torExitCountries.isBlank()) cur.torExit else "") }
                     }
                 }
                 return@launch
@@ -1165,7 +1166,7 @@ class TunnelService : VpnService() {
                     if (!com.vlesscardvpn.tor.TorCard.portUp()) {
                         runCatching { com.vlesscardvpn.tor.TorCard.stopEmbedded() }
                         val cur = Store.state.value.settings
-                        runCatching { com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, cur.torBridge, bridgeLines = runCatching { com.vlesscardvpn.tor.TorBridgeCatalog.selected(cur.torBridgeLines, cur.torBridge) }.getOrDefault(emptyList())) }
+                        runCatching { com.vlesscardvpn.tor.TorCard.ensureStarted(this@TunnelService, cur.torBridge, bridgeLines = runCatching { com.vlesscardvpn.tor.TorBridgeCatalog.selected(cur.torBridgeLines, cur.torBridge) }.getOrDefault(emptyList()), exitCountry = if (cur.torExitCountries.isBlank()) cur.torExit else "") }
                     }
                     if (rotator.needsReconnect) {
                         if (nowMs - lastReconnect < com.vlesscardvpn.tor.TorRotator.RECONNECT_MS) continue

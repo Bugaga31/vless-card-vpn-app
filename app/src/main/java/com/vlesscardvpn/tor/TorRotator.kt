@@ -33,6 +33,8 @@ class TorRotator(
 
     /** Not connected, or the control socket failed twice in a row (e.g. the daemon was restarted). */
     val needsReconnect: Boolean get() = !connected || failures >= 2
+    /** Alias kept for callers that only ask whether the socket is up right now. */
+    val isConnected: Boolean get() = connected
 
     fun connect(): Boolean {
         connected = false
