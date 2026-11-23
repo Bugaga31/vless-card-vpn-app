@@ -218,7 +218,7 @@ data class Settings(
         /** "https://www.Site.com/path" → "site.com"; null when it is not a domain. */
         fun host(input: String): String? = input.trim().lowercase().substringAfter("://").substringBefore('/').substringBefore('?')
             .substringBefore(':').removePrefix("www.").trim('.').takeIf { Regex("^[a-z0-9а-яё-]+(\\.[a-z0-9а-яё-]+)+$").matches(it) }
-        const val REV = 80
+        const val REV = 81
         /** YouTube video, pictures and player — what «Умный YouTube» sends through the DPI bypass. */
         val YT_DOMAINS = listOf("geosite:youtube", "domain:googlevideo.com", "domain:ytimg.com", "domain:ggpht.com", "domain:youtu.be", "domain:youtube.com")
         /**
@@ -244,6 +244,11 @@ data class Settings(
                 probeParallel = if (s.probeParallel == 5) 20 else s.probeParallel,
                 bulkTcpParallel = if (s.bulkTcpParallel == 250) 1000 else s.bulkTcpParallel,
                 autoChecks = if (s.autoChecks == setOf("telegram","stability","voice","discord")) setOf("telegram") else s.autoChecks)
+            // 81 — the requested Telegram-channel subscriptions (2026-11-23); a later removal by the user is respected.
+            if (s.rev < 81) {
+                val miss = listOf(Subs.VVG0, Subs.LVPN_RE).filter { it !in s.subscriptions }
+                if (miss.isNotEmpty()) s = s.copy(subscriptions = s.subscriptions + miss)
+            }
             return if (s.rev >= REV) s else s.copy(rev = REV)
         }
         const val DPI_AUTO = "auto"

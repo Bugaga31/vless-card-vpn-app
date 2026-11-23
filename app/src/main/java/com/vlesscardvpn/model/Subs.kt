@@ -8,6 +8,8 @@ object Subs {
     private const val IG = "igareck/vpn-configs-for-russia/main"
     const val DIMAN = "https://gist.githubusercontent.com/Diman331/8c868070c0b5a5ec0c7d94507717b67b/raw/subscription.txt"
     const val OVI_FULL = "https://raw.githubusercontent.com/OVI-vpn/bs/main/full.txt"
+    const val VVG0 = "https://sub.vvg0.ru/sub/servers.txt"
+    const val LVPN_RE = "https://gist.githubusercontent.com/Darlene-Alderson-FSOCIETY/11956d8ddb4246d0b58f075b31126157/raw/LVPN_Telegram_RE_s_B.txt"
     const val CLOUD_WORKS = "https://raw.githubusercontent.com/Bugaga31/vless-card-vpn/servers/works.txt"
     const val RU = "Для России"
     const val WL = "Белые списки (мобильный интернет)"
@@ -64,6 +66,9 @@ object Subs {
         SubSource("https://pozor.bond/sub/wfe5og2pse0p", "pozor · wfe5og2pse0p (404 при проверке 28.10)", WORLD),
         SubSource("https://pozor.bond/sub/f02gu3tqgql1", "pozor · f02gu3tqgql1 (404 при проверке 28.10)", WORLD),
         SubSource("https://pozor.bond/sub/2sdfe56lna", "pozor · 2sdfe56lna (404 при проверке 28.10)", WORLD),
+        // Requested 2026-11-23 (Telegram channels). Plain files only: the 8ot.ru aggregator page is JS and the app cannot fetch it.
+        SubSource("https://sub.vvg0.ru/sub/servers.txt", "neolink · vvg0 подписка", WORLD),
+        SubSource("https://gist.githubusercontent.com/Darlene-Alderson-FSOCIETY/11956d8ddb4246d0b58f075b31126157/raw/LVPN_Telegram_RE_s_B.txt", "LVPN · RE_s Basement", RU),
     )
     private val byUrl = CATALOG.associateBy { it.url }
     fun find(url: String): SubSource? = byUrl[url]
