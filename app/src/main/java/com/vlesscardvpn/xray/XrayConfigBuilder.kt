@@ -247,7 +247,7 @@ object XrayConfigBuilder {
         // whenever it flows, so domain rules (RU exception, ads, services) apply to those UDP flows too.
         val quicTunneled = !(settings.torAll && torOn)
         fun sniff() = JSONObject().put("enabled", true).put("destOverride", JSONArray(com.vlesscardvpn.core.TransportPolicy.sniff(!settings.blockQuic || com.vlesscardvpn.core.RuWhitelistPolicy.rules(settings).isNotEmpty() || (settings.blockQuic && quicTunneled)))).put("routeOnly", true)
-        val inbounds = arr(JSONObject().put("tag", "socks").put("listen", "127.0.0.1").put("port", socks.port)
+        val inbounds = arr(JSONObject().put("tag", "socks").put("listen", listen).put("port", socks.port)
             .put("protocol", "socks").put("settings", inSettings).put("sniffing", sniff()))
         if (torOn) {
             inbounds.put(JSONObject().put("tag", TOR_UPLINK_INBOUND).put("listen", "127.0.0.1").put("port", torUpstreamPort)

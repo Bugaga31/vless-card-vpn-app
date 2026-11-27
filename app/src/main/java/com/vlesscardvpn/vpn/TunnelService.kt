@@ -372,7 +372,7 @@ class TunnelService : VpnService() {
                 com.vlesscardvpn.tor.TorCard.requireOwnedOrFree()
             }
             val config = XrayConfigBuilder.vpnConfig(used, settings, bdPort, socks, set.ports,
-                listen = if (proxy && settings.lanShare) "0.0.0.0" else "127.0.0.1", httpPort = if (proxy) settings.httpPort else null, warpHop = warpHop,
+                listen = "0.0.0.0", httpPort = if (proxy) settings.httpPort else null, warpHop = warpHop,
                 heavy = XrayConfigBuilder.heavyOf(used.map { if (automatic) com.vlesscardvpn.core.ServerChoice.measuredSpeed(st.state(it.first),network,System.currentTimeMillis()) else st.state(it.first).kbps },
                     used.map { if (automatic && com.vlesscardvpn.core.AutoEligibility.serviceRank(st.state(it.first),network,System.currentTimeMillis()) == 1) null else st.state(it.first).ytOk }),
                 serviceRoutes = if (measuredChain == null) com.vlesscardvpn.core.ServiceRoutes.snapshot(network, android.os.SystemClock.elapsedRealtime()) else emptyMap(),
