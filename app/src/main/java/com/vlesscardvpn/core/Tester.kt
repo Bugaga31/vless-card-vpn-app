@@ -207,15 +207,17 @@ object Tester {
         val done = java.util.concurrent.CountDownLatch(1)
         val answered = java.util.concurrent.atomic.AtomicBoolean(false)
         val pending = java.util.concurrent.atomic.AtomicInteger(urls.size)
-        val calls = urls.mapNotNull { url -> runCatching { client.newCall(Request.Builder().url(url).header("User-Agent", UA).build()) }.getOrNull() }
+        val calls = urls.mapNotNull { url ->
+            runCatching { url to client.newCall(Request.Builder().url(url).header("User-Agent", UA).build()) }.getOrNull()
+        }
         if (calls.size < urls.size) repeat(urls.size - calls.size) { pending.decrementAndGet() }
         if (calls.isEmpty()) return false
-        onCancel?.invoke { calls.forEach { it.cancel() }; done.countDown() }
+        onCancel?.invoke { calls.forEach { it.second.cancel() }; done.countDown() }
         try {
-            for (call in calls) call.enqueue(object : okhttp3.Callback {
+            for ((url, req) in calls) req.enqueue(object : okhttp3.Callback {
                 override fun onFailure(call: okhttp3.Call, e: java.io.IOException) { if (pending.decrementAndGet() <= 0) done.countDown() }
                 override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                    response.use { if (RouteLiveness.answered(it.code)) answered.set(true) }
+                    response.use { if (RouteLiveness.answered(it.code)) { answered.set(true); RouteLiveness.noteAnswered(url) } }
                     if (answered.get() || pending.decrementAndGet() <= 0) done.countDown()
                 }
             })
@@ -223,7 +225,7 @@ object Tester {
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
         } finally {
-            calls.forEach { it.cancel() }
+            calls.forEach { it.second.cancel() }
             client.dispatcher.cancelAll(); client.connectionPool.evictAll(); client.dispatcher.executorService.shutdown()
         }
         return answered.get()

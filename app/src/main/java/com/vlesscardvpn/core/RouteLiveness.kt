@@ -20,8 +20,24 @@ object RouteLiveness {
     const val GSTATIC = "https://www.gstatic.com/generate_204"
     const val CLOUDFLARE = "https://cp.cloudflare.com/generate_204"
 
+    /** 1.2.164: more public liveness endpoints; they all race at once, ANY HTTP answer proves the route. */
+    val EXTRA_CHECK_URLS: List<String> = listOf(
+        "https://connectivitycheck.gstatic.com/generate_204",
+        "https://www.google.com/generate_204",
+        "https://www.msftconnecttest.com/connecttest.txt",
+        "https://captive.apple.com/hotspot-detect.html",
+        "https://detectportal.firefox.com/success.txt",
+    )
+
+    /** 1.2.164: the endpoint that answered fastest last time is tried first next time ("fastest stays"). */
+    @Volatile var preferredUrl: String? = null
+    fun noteAnswered(url: String) { if (url.startsWith("https://") && preferredUrl != url) preferredUrl = url }
+
     /** Anycast resolvers reachable from Russian and foreign networks alike; a TCP handshake only, no payload. */
-    val PHYSICAL_TARGETS: List<Pair<String, Int>> = listOf("77.88.8.8" to 53, "77.88.8.1" to 53, "8.8.8.8" to 443, "1.1.1.1" to 443)
+    val PHYSICAL_TARGETS: List<Pair<String, Int>> = listOf(
+        "77.88.8.8" to 53, "77.88.8.1" to 53, "8.8.8.8" to 443, "1.1.1.1" to 443,
+        "9.9.9.9" to 53, "208.67.222.222" to 443, "94.140.14.14" to 53,
+    )
 
     /** TCP-carried protocols: a direct handshake to their endpoint proves the physical path. UDP ones cannot. */
     val TCP_PROTOCOLS = setOf("vless", "vmess", "trojan", "shadowsocks", "socks")
@@ -35,9 +51,10 @@ object RouteLiveness {
     /** Any HTTP status proves that the route carries traffic both ways; only a transport failure counts as silence. */
     fun answered(code: Int): Boolean = code in 100..599
 
-    /** The configured check URL first, then one independent public 204 endpoint; HTTPS only, two at most. */
+    /** The configured check URL first, then the fastest winner from last time, then the rest; HTTPS only. */
     fun urls(testUrl: String): List<String> =
-        listOf(testUrl.trim(), GSTATIC, CLOUDFLARE).filter { it.startsWith("https://") }.distinct().take(2)
+        (listOf(testUrl.trim(), preferredUrl, GSTATIC, CLOUDFLARE) + EXTRA_CHECK_URLS)
+            .filter { it.startsWith("https://") }.distinct().take(6)
 
     /** Fixed anycast targets plus a few TCP VLESS endpoints (so a closed lab network still has a physical witness). */
     fun targets(endpoints: List<Pair<String, Int>>): List<Pair<String, Int>> =
