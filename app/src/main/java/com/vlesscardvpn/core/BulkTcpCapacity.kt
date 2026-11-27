@@ -6,10 +6,10 @@ import java.io.File
 
 /** TCP-only bulk checks use non-blocking sockets. Keep descriptors for VPN, DNS, files and Android. */
 object BulkTcpCapacity {
-    const val DEFAULT = 2000
-    const val MAX = 2000
+    const val DEFAULT = 4000
+    const val MAX = 4000
     private const val RESERVED_FDS = 128L
-    val choices = listOf(50, 100, 250, 500, 1000, 2000)
+    val choices = listOf(50, 100, 250, 500, 1000, 2000, 4000)
     fun normalize(value: Int) = value.takeIf { it in choices } ?: DEFAULT
 
     fun limit(requested: Int, softLimit: Long?, openFds: Int?, lowMemory: Boolean?): Int {

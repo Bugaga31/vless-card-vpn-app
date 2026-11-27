@@ -217,7 +217,7 @@ data class Settings(
         /** "https://www.Site.com/path" → "site.com"; null when it is not a domain. */
         fun host(input: String): String? = input.trim().lowercase().substringAfter("://").substringBefore('/').substringBefore('?')
             .substringBefore(':').removePrefix("www.").trim('.').takeIf { Regex("^[a-z0-9а-яё-]+(\\.[a-z0-9а-яё-]+)+$").matches(it) }
-        const val REV = 83
+        const val REV = 84
         /** YouTube video, pictures and player — what «Умный YouTube» sends through the DPI bypass. */
         val YT_DOMAINS = listOf("geosite:youtube", "domain:googlevideo.com", "domain:ytimg.com", "domain:ggpht.com", "domain:youtu.be", "domain:youtube.com")
         /**
@@ -254,6 +254,10 @@ data class Settings(
             if (s.rev < 83) s = s.copy(
                 probeParallel = if (s.probeParallel == 20) 40 else s.probeParallel,
                 bulkTcpParallel = if (s.bulkTcpParallel == 1000) 2000 else s.bulkTcpParallel)
+            // 84 — speed defaults doubled again (2026-11-27); an explicitly chosen lower value is respected.
+            if (s.rev < 84) s = s.copy(
+                probeParallel = if (s.probeParallel == 40) 80 else s.probeParallel,
+                bulkTcpParallel = if (s.bulkTcpParallel == 2000) 4000 else s.bulkTcpParallel)
             return if (s.rev >= REV) s else s.copy(rev = REV)
         }
         const val DPI_AUTO = "auto"
