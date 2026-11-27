@@ -54,7 +54,7 @@ object RouteLiveness {
     /** The configured check URL first, then the fastest winner from last time, then the rest; HTTPS only. */
     fun urls(testUrl: String): List<String> =
         (listOf(testUrl.trim(), preferredUrl, GSTATIC, CLOUDFLARE) + EXTRA_CHECK_URLS)
-            .filter { it.startsWith("https://") }.distinct().take(6)
+            .filterNotNull().filter { it.startsWith("https://") }.distinct().take(6)
 
     /** Fixed anycast targets plus a few TCP VLESS endpoints (so a closed lab network still has a physical witness). */
     fun targets(endpoints: List<Pair<String, Int>>): List<Pair<String, Int>> =
