@@ -36,29 +36,42 @@ object RouteLiveness {
     )
 
     /** 1.2.164: the endpoint that answered fastest last time is tried first next time ("fastest stays").
-     *  1.2.165: the winner now survives an app restart (own prefs file, no other prefs are touched). */
+     *  1.2.165: the winner now survives an app restart (own prefs file, no other prefs are touched).
+     *  1.2.169: the winner is per network profile: Wi-Fi and mobile each keep their own fastest URL,
+     *  so a switch between them starts from the URL that was fastest on THAT network, not the other. */
     @Volatile var preferredUrl: String? = null
+    @Volatile private var profile: String = ""
     private var prefs: android.content.SharedPreferences? = null
+    /** Legacy keys ("preferred"/"big") stay the default profile's storage, so nothing is lost on upgrade. */
+    private fun key(base: String, prof: String): String = if (prof.isBlank()) base else base + ":" + prof
+    fun setProfile(prof: String?) {
+        val np = prof?.takeIf { it.isNotBlank() } ?: ""
+        if (np == profile) return
+        profile = np
+        preferredUrl = prefs?.getString(key("preferred", np), null)?.takeIf { it.startsWith("https://") }
+        preferredBigUrl = prefs?.getString(key("big", np), null)?.takeIf { it.startsWith("https://") }
+    }
     fun initPrefs(ctx: android.content.Context) {
         prefs = ctx.getSharedPreferences("check_url", 0)
-        preferredUrl = prefs?.getString("preferred", null)?.takeIf { it.startsWith("https://") }
-        preferredBigUrl = prefs?.getString("big", null)?.takeIf { it.startsWith("https://") }
+        preferredUrl = prefs?.getString(key("preferred", profile), null)?.takeIf { it.startsWith("https://") }
+        preferredBigUrl = prefs?.getString(key("big", profile), null)?.takeIf { it.startsWith("https://") }
     }
     fun noteAnswered(url: String) {
         if (url.startsWith("https://") && preferredUrl != url) {
             preferredUrl = url
-            prefs?.edit()?.putString("preferred", url)?.apply()
+            prefs?.edit()?.putString(key("preferred", profile), url)?.apply()
         }
     }
     /** A round with no answer from anyone clears the memory: another endpoint must win the next race. */
-    fun dropWinner() { preferredUrl = null; prefs?.edit()?.remove("preferred")?.apply() }
+    fun dropWinner() { preferredUrl = null; prefs?.edit()?.remove(key("preferred", profile))?.apply() }
 
-    /** 1.2.165: the big-download mirror that delivered fastest last time is tried first next time. */
+    /** 1.2.165: the big-download mirror that delivered fastest last time is tried first next time.
+     *  1.2.169: remembered per network profile, like the small-URL winner. */
     @Volatile var preferredBigUrl: String? = null
     fun noteBigUrl(url: String) {
         if (url.startsWith("https://") && preferredBigUrl != url) {
             preferredBigUrl = url
-            prefs?.edit()?.putString("big", url)?.apply()
+            prefs?.edit()?.putString(key("big", profile), url)?.apply()
         }
     }
 

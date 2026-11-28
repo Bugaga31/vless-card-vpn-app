@@ -1945,6 +1945,8 @@ class TunnelService : VpnService() {
         initial?.let { validationWake.observe(it.toString(), it.toString(),
             cm.getNetworkCapabilities(it)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true) }
         curNet = initial
+        // 1.2.169: pick up the saved fastest check URL for the network we start on
+        com.vlesscardvpn.core.RouteLiveness.setProfile(initial?.let { Net.key(this, it) })
         handoff.seed(initial?.let { NetworkHandoff.Snapshot(it.toString(), Net.key(this, it), Net.pathRevision(this,it)) })
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) = queueNetworkRefresh()
@@ -1973,6 +1975,8 @@ class TunnelService : VpnService() {
             networkRefreshWindow.reset()
             val network = Net.underlying(this@TunnelService)
             val profile = network?.let { Net.key(this@TunnelService, it) }
+            // 1.2.169: the fastest remembered check URL follows the network profile (WiFi and mobile each keep their own)
+            com.vlesscardvpn.core.RouteLiveness.setProfile(profile)
             val snapshot = network?.let { NetworkHandoff.Snapshot(it.toString(), profile!!, Net.pathRevision(this@TunnelService,it)) }
             // 1.2.136: the same network merely gained a path element (an IPv6 prefix after IPv4, a second address):
             // established connections are untouched — nothing is cancelled, reset or reconnected.
