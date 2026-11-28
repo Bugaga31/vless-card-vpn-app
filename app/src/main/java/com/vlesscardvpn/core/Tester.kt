@@ -508,7 +508,11 @@ object Tester {
             val r = runCatching {
                 client.newCall(Request.Builder().url(url).header("User-Agent", UA).build()).execute().use { resp ->
                     check(resp.isSuccessful)
-                    val src = resp.body!!.byteStream(); val buf = ByteArray(65536); var total = 0L
+                    val src = resp.body!!.byteStream()
+                    // 1.2.192: 16 KB read chunks — the client keeps a 3 s read timeout, and a 64 KB chunk needs a
+                    // sustained ~170 kbit/s per read, so a slow-but-working mobile link tripped it, every mirror
+                    // "failed" and the measurement reported 0. 16 KB needs only ~44 kbit/s per read.
+                    val buf = ByteArray(16384); var total = 0L
                     val t0 = System.nanoTime(); val end = t0 + seconds * 1_000_000_000L
                     while (System.nanoTime() < end) { val n = src.read(buf); if (n < 0) break; total += n }
                     val sec = (System.nanoTime() - t0) / 1e9
