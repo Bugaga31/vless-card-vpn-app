@@ -249,6 +249,15 @@ object XrayConfigBuilder {
         fun sniff() = JSONObject().put("enabled", true).put("destOverride", JSONArray(com.vlesscardvpn.core.TransportPolicy.sniff(!settings.blockQuic || com.vlesscardvpn.core.RuWhitelistPolicy.rules(settings).isNotEmpty() || (settings.blockQuic && quicTunneled)))).put("routeOnly", true)
         val inbounds = arr(JSONObject().put("tag", "socks").put("listen", listen).put("port", socks.port)
             .put("protocol", "socks").put("settings", inSettings).put("sniffing", sniff()))
+        // 1.2.180: fix: the httpPort parameter used to be accepted and ignored, so in proxy mode the UI
+        // showed an HTTP proxy port with nothing listening on it; the HTTP inbound now actually exists.
+        if (httpPort != null) {
+            val httpSettings = JSONObject().put("ip", "127.0.0.1")
+            if (socks.auth) httpSettings.put("auth", "password").put("accounts", arr(JSONObject().put("user", socks.user).put("pass", socks.pass)))
+            else httpSettings.put("auth", "noauth")
+            inbounds.put(JSONObject().put("tag", "http").put("listen", listen).put("port", httpPort)
+                .put("protocol", "http").put("settings", httpSettings).put("sniffing", sniff()))
+        }
         if (torOn) {
             inbounds.put(JSONObject().put("tag", TOR_UPLINK_INBOUND).put("listen", "127.0.0.1").put("port", torUpstreamPort)
                 .put("protocol", "http").put("settings", JSONObject()))
