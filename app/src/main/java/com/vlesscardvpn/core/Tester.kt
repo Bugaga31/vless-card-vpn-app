@@ -491,15 +491,18 @@ object Tester {
     fun traceLoc(body: String): String? = body.lineSequence().firstOrNull { it.startsWith("loc=") }?.substringAfter('=')?.trim()?.uppercase()?.takeIf { it.length == 2 }
 
     data class SpeedResult(val mbps: Double, val pingMs: Int, val bytes: Long)
-    val SPEED_URLS = listOf("https://speed.cloudflare.com/__down?bytes=25000000", "https://cachefly.cachefly.net/10mb.test")
+    /** 1.2.168: third full-speed mirror (OVH) added; the first one that answers still wins. */
+    val SPEED_URLS = listOf("https://speed.cloudflare.com/__down?bytes=25000000", "https://cachefly.cachefly.net/10mb.test", "https://proof.ovh.net/files/10Mb.dat")
 
     /** Download speed through the running tunnel: up to [seconds] s of one big file (first mirror that answers), plus ping. */
     fun speed(port: Int, seconds: Int = 8): SpeedResult {
         val client = base.newBuilder().proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port)))
             .callTimeout(seconds + 10L, TimeUnit.SECONDS).build()
+        // 1.2.168: ping is measured against the check URL that answered fastest last time (known to work on
+        // this network), falling back to gstatic when none is remembered yet.
         val ping = runCatching {
             val t0 = System.nanoTime()
-            client.newCall(Request.Builder().url("https://www.gstatic.com/generate_204").header("User-Agent", UA).build()).execute().use { }
+            client.newCall(Request.Builder().url(com.vlesscardvpn.core.RouteLiveness.preferredUrl ?: "https://www.gstatic.com/generate_204").header("User-Agent", UA).build()).execute().use { }
             ((System.nanoTime() - t0) / 1_000_000).toInt()
         }.getOrDefault(0)
         for (url in SPEED_URLS) {
