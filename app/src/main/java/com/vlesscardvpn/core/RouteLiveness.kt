@@ -75,10 +75,12 @@ object RouteLiveness {
         }
     }
 
-    /** Anycast resolvers reachable from Russian and foreign networks alike; a TCP handshake only, no payload. */
+    /** Anycast resolvers reachable from Russian and foreign networks alike; a TCP handshake only, no payload.
+     *  1.2.170: pool widened 7 -> 10 (Quad9 secondary, OpenDNS secondary, AdGuard), more witnesses survive local blocks. */
     val PHYSICAL_TARGETS: List<Pair<String, Int>> = listOf(
         "77.88.8.8" to 53, "77.88.8.1" to 53, "8.8.8.8" to 443, "1.1.1.1" to 443,
         "9.9.9.9" to 53, "208.67.222.222" to 443, "94.140.14.14" to 53,
+        "149.112.112.112" to 53, "208.67.220.220" to 443, "185.228.168.9" to 53,
     )
 
     /** TCP-carried protocols: a direct handshake to their endpoint proves the physical path. UDP ones cannot. */
