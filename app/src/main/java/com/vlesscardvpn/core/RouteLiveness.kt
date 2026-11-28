@@ -27,11 +27,26 @@ object RouteLiveness {
         "https://www.msftconnecttest.com/connecttest.txt",
         "https://captive.apple.com/hotspot-detect.html",
         "https://detectportal.firefox.com/success.txt",
+        "https://connect.rom.miui.com/generate_204",
+        "https://connectivitycheck.platform.hicloud.com/generate_204",
     )
 
-    /** 1.2.164: the endpoint that answered fastest last time is tried first next time ("fastest stays"). */
+    /** 1.2.164: the endpoint that answered fastest last time is tried first next time ("fastest stays").
+     *  1.2.165: the winner now survives an app restart (own prefs file, no other prefs are touched). */
     @Volatile var preferredUrl: String? = null
-    fun noteAnswered(url: String) { if (url.startsWith("https://") && preferredUrl != url) preferredUrl = url }
+    private var prefs: android.content.SharedPreferences? = null
+    fun initPrefs(ctx: android.content.Context) {
+        prefs = ctx.getSharedPreferences("check_url", 0)
+        preferredUrl = prefs?.getString("preferred", null)?.takeIf { it.startsWith("https://") }
+    }
+    fun noteAnswered(url: String) {
+        if (url.startsWith("https://") && preferredUrl != url) {
+            preferredUrl = url
+            prefs?.edit()?.putString("preferred", url)?.apply()
+        }
+    }
+    /** A round with no answer from anyone clears the memory: another endpoint must win the next race. */
+    fun dropWinner() { preferredUrl = null; prefs?.edit()?.remove("preferred")?.apply() }
 
     /** Anycast resolvers reachable from Russian and foreign networks alike; a TCP handshake only, no payload. */
     val PHYSICAL_TARGETS: List<Pair<String, Int>> = listOf(
@@ -54,7 +69,7 @@ object RouteLiveness {
     /** The configured check URL first, then the fastest winner from last time, then the rest; HTTPS only. */
     fun urls(testUrl: String): List<String> =
         (listOf(testUrl.trim(), preferredUrl, GSTATIC, CLOUDFLARE) + EXTRA_CHECK_URLS)
-            .filterNotNull().filter { it.startsWith("https://") }.distinct().take(6)
+            .filterNotNull().filter { it.startsWith("https://") }.distinct().take(9)
 
     /** Fixed anycast targets plus a few TCP VLESS endpoints (so a closed lab network still has a physical witness). */
     fun targets(endpoints: List<Pair<String, Int>>): List<Pair<String, Int>> =

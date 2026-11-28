@@ -228,6 +228,7 @@ object Tester {
             calls.forEach { it.second.cancel() }
             client.dispatcher.cancelAll(); client.connectionPool.evictAll(); client.dispatcher.executorService.shutdown()
         }
+        if (!answered.get()) RouteLiveness.dropWinner()
         return answered.get()
     }
 
