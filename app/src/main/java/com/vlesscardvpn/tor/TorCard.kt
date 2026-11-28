@@ -258,6 +258,9 @@ object TorCard {
         appendLine("CookieAuthentication 1")
         appendLine("SafeLogging 1")
         appendLine("HTTPSProxy 127.0.0.1:$upstreamHttpPort")
+        // 1.2.182: exitCountry was accepted but silently ignored — write the same ExitNodes/StrictNodes lines as the embedded path
+        val manualCc = if (com.vlesscardvpn.core.Store.state.value.settings.torExitCountries.isBlank()) exitCountry else ""
+        append(exitNodesText(manualCc))
         if (bridge != "none") appendLine("# Set TOR_PT_PROXY=socks5://127.0.0.1:$ptProxyPort for the managed transport")
         when (bridge) {
             "snowflake" -> {

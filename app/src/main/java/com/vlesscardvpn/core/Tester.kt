@@ -392,7 +392,8 @@ object Tester {
                 if (System.nanoTime() >= deadline) return BodyResult()
                 val sample = download(client, url, deadline, onCall)
                 if (sample.bytes >= BIG_BYTES) { RouteLiveness.noteBigUrl(url); return BodyResult(true, minOf(sample.slowestKbps,TransferProof.rate(sample.bytes,System.nanoTime()-t0)), sample.bytes.toLong(), ((System.nanoTime()-t0)/1_000_000).coerceAtLeast(1)) }
-            } catch (e: java.io.InterruptedIOException) { return BodyResult() } catch (e: Exception) { /* mirror down: next */ }
+            } catch (e: java.io.InterruptedIOException) { return BodyResult() }
+              catch (e: Exception) { if (url == RouteLiveness.preferredBigUrl) RouteLiveness.dropBigUrl() /* 1.2.174 */ }
         }
         return BodyResult()
     }
@@ -494,14 +495,16 @@ object Tester {
 
     /** Download speed through the running tunnel: up to [seconds] s of one big file (first mirror that answers), plus ping. */
     fun speed(port: Int, seconds: Int = 8): SpeedResult {
+        // 1.2.188/1.2.189: the speed client keeps its own short read timeout (3 s) — a stalled mirror read gives up fast and the next mirror takes over
+        RouteLiveness.loadPreferred()
         val client = base.newBuilder().proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port)))
+            .connectTimeout(5, TimeUnit.SECONDS).readTimeout(3, TimeUnit.SECONDS)
             .callTimeout(seconds + 10L, TimeUnit.SECONDS).build()
-        val ping = runCatching {
-            val t0 = System.nanoTime()
-            client.newCall(Request.Builder().url("https://www.gstatic.com/generate_204").header("User-Agent", UA).build()).execute().use { }
-            ((System.nanoTime() - t0) / 1_000_000).toInt()
-        }.getOrDefault(0)
-        for (url in SPEED_URLS) {
+        val ping = runCatching { RouteLiveness.pingMs(client) }.getOrDefault(0)
+        // 1.2.173: the mirror that delivered a good measurement last time is tried first, for this network kind
+        val order = RouteLiveness.preferredBigUrl?.takeIf { SPEED_URLS.contains(it) }
+            ?.let { first -> listOf(first) + SPEED_URLS.filter { it != first } } ?: SPEED_URLS
+        for (url in order) {
             val r = runCatching {
                 client.newCall(Request.Builder().url(url).header("User-Agent", UA).build()).execute().use { resp ->
                     check(resp.isSuccessful)
@@ -512,7 +515,13 @@ object Tester {
                     SpeedResult(if (sec > 0) total * 8 / sec / 1e6 else 0.0, ping, total)
                 }
             }.getOrNull()
-            if (r != null && r.bytes > 100_000) { client.connectionPool.evictAll(); return r }
+            if (r != null && r.bytes > 100_000) {
+                // 1.2.179: a big mirror that stopped delivering a full sample demotes itself; a solid sample earns first place
+                if (r.bytes >= 5_000_000) RouteLiveness.noteBigUrl(url)
+                else if (url == RouteLiveness.preferredBigUrl) RouteLiveness.dropBigUrl()
+                client.connectionPool.evictAll(); return r
+            }
+            if (url == RouteLiveness.preferredBigUrl) RouteLiveness.dropBigUrl() // 1.2.174: dead remembered mirror steps aside
         }
         client.connectionPool.evictAll()
         return SpeedResult(0.0, ping, 0)

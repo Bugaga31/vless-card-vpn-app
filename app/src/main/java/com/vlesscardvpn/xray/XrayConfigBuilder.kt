@@ -249,6 +249,9 @@ object XrayConfigBuilder {
         fun sniff() = JSONObject().put("enabled", true).put("destOverride", JSONArray(com.vlesscardvpn.core.TransportPolicy.sniff(!settings.blockQuic || com.vlesscardvpn.core.RuWhitelistPolicy.rules(settings).isNotEmpty() || (settings.blockQuic && quicTunneled)))).put("routeOnly", true)
         val inbounds = arr(JSONObject().put("tag", "socks").put("listen", listen).put("port", socks.port)
             .put("protocol", "socks").put("settings", inSettings).put("sniffing", sniff()))
+        // 1.2.180: httpPort was accepted but silently ignored — proxy mode showed an HTTP port nobody listened on
+        if (httpPort != null) inbounds.put(JSONObject().put("tag", "http").put("listen", listen).put("port", httpPort)
+            .put("protocol", "http").put("settings", JSONObject(inSettings.toString())).put("sniffing", sniff()))
         if (torOn) {
             inbounds.put(JSONObject().put("tag", TOR_UPLINK_INBOUND).put("listen", "127.0.0.1").put("port", torUpstreamPort)
                 .put("protocol", "http").put("settings", JSONObject()))
@@ -312,7 +315,7 @@ object XrayConfigBuilder {
             .apply { if (settings.turbo) put("serveStale", true) })
 
         val rules = JSONArray()
-        rules.put(JSONObject().put("inboundTag", arr("socks")).put("port", "53").put("outboundTag", "dns-out"))
+        rules.put(JSONObject().put("inboundTag", if (httpPort != null) arr("socks", "http") else arr("socks")).put("port", "53").put("outboundTag", "dns-out"))
         if (torOn) rules.put(toTorUpstream(JSONObject().put("inboundTag", arr(TOR_UPLINK_INBOUND, TOR_PT_UPLINK_INBOUND))))
         if (ruRules.isNotEmpty()) rules.put(JSONObject().put("inboundTag", arr("dns-module"))
             .put("ip", arr(com.vlesscardvpn.core.RuWhitelistPolicy.DNS + "/32")).put("port", "53")
