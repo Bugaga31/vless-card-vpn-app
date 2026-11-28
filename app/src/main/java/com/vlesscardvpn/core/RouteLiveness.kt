@@ -94,6 +94,11 @@ object RouteLiveness {
         preferredSpeedUrl = null
         prefs?.edit()?.remove(key("speed", profile))?.apply()
     }
+    /** 1.2.179: a big-download mirror that stopped delivering clears its first place too, so a dead mirror is not retried first forever. */
+    fun dropBigUrl() {
+        preferredBigUrl = null
+        prefs?.edit()?.remove(key("big", profile))?.apply()
+    }
 
     /** Anycast resolvers reachable from Russian and foreign networks alike; a TCP handshake only, no payload.
      *  1.2.170: pool widened 7 -> 10 (Quad9 secondary, OpenDNS secondary, AdGuard), more witnesses survive local blocks.

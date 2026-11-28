@@ -396,6 +396,8 @@ object Tester {
                 if (sample.bytes >= BIG_BYTES) { RouteLiveness.noteBigUrl(url); return BodyResult(true, minOf(sample.slowestKbps,TransferProof.rate(sample.bytes,System.nanoTime()-t0)), sample.bytes.toLong(), ((System.nanoTime()-t0)/1_000_000).coerceAtLeast(1)) }
             } catch (e: java.io.InterruptedIOException) { return BodyResult() } catch (e: Exception) { /* mirror down: next */ }
         }
+        // 1.2.179: no mirror delivered a full sample, so the remembered big mirror loses its first place.
+        RouteLiveness.dropBigUrl()
         return BodyResult()
     }
 
