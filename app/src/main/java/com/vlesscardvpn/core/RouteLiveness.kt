@@ -53,11 +53,13 @@ object RouteLiveness {
         profile = np
         preferredUrl = prefs?.getString(key("preferred", np), null)?.takeIf { it.startsWith("https://") }
         preferredBigUrl = prefs?.getString(key("big", np), null)?.takeIf { it.startsWith("https://") }
+        preferredSpeedUrl = prefs?.getString(key("speed", np), null)?.takeIf { it.startsWith("https://") }
     }
     fun initPrefs(ctx: android.content.Context) {
         prefs = ctx.getSharedPreferences("check_url", 0)
         preferredUrl = prefs?.getString(key("preferred", profile), null)?.takeIf { it.startsWith("https://") }
         preferredBigUrl = prefs?.getString(key("big", profile), null)?.takeIf { it.startsWith("https://") }
+        preferredSpeedUrl = prefs?.getString(key("speed", profile), null)?.takeIf { it.startsWith("https://") }
     }
     fun noteAnswered(url: String) {
         if (url.startsWith("https://") && preferredUrl != url) {
@@ -75,6 +77,16 @@ object RouteLiveness {
         if (url.startsWith("https://") && preferredBigUrl != url) {
             preferredBigUrl = url
             prefs?.edit()?.putString(key("big", profile), url)?.apply()
+        }
+    }
+
+    /** 1.2.173: the short speed-test mirror that delivered a good sample last time is tried first next time,
+     *  remembered per network profile, like the check and big-mirror winners. */
+    @Volatile var preferredSpeedUrl: String? = null
+    fun noteSpeedUrl(url: String) {
+        if (url.startsWith("https://") && preferredSpeedUrl != url) {
+            preferredSpeedUrl = url
+            prefs?.edit()?.putString(key("speed", profile), url)?.apply()
         }
     }
 

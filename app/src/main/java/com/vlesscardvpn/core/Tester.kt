@@ -507,7 +507,10 @@ object Tester {
             client.newCall(Request.Builder().url(com.vlesscardvpn.core.RouteLiveness.preferredUrl ?: "https://www.gstatic.com/generate_204").header("User-Agent", UA).build()).execute().use { }
             ((System.nanoTime() - t0) / 1_000_000).toInt()
         }.getOrDefault(0)
-        for (url in SPEED_URLS) {
+        // 1.2.173: the mirror that gave a good sample last time is tried first (per network profile).
+        val order = RouteLiveness.preferredSpeedUrl?.takeIf { SPEED_URLS.contains(it) }
+            ?.let { first -> listOf(first) + SPEED_URLS.filter { it != first } } ?: SPEED_URLS
+        for (url in order) {
             val r = runCatching {
                 client.newCall(Request.Builder().url(url).header("User-Agent", UA).build()).execute().use { resp ->
                     check(resp.isSuccessful)
@@ -518,7 +521,7 @@ object Tester {
                     SpeedResult(if (sec > 0) total * 8 / sec / 1e6 else 0.0, ping, total)
                 }
             }.getOrNull()
-            if (r != null && r.bytes > 100_000) { client.connectionPool.evictAll(); return r }
+            if (r != null && r.bytes > 100_000) { RouteLiveness.noteSpeedUrl(url); client.connectionPool.evictAll(); return r }
         }
         client.connectionPool.evictAll()
         return SpeedResult(0.0, ping, 0)
