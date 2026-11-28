@@ -103,6 +103,7 @@ object RouteLiveness {
         "9.9.9.9" to 53, "208.67.222.222" to 443, "94.140.14.14" to 53,
         "149.112.112.112" to 53, "208.67.220.220" to 443, "185.228.168.9" to 53,
         "9.9.9.11" to 53, "94.140.15.15" to 53,
+        "1.0.0.1" to 53, "77.88.8.88" to 53,
     )
 
     /** TCP-carried protocols: a direct handshake to their endpoint proves the physical path. UDP ones cannot. */
