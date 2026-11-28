@@ -252,6 +252,9 @@ object TorCard {
         require(upstreamHttpPort in 1024..65535 && upstreamHttpPort != socksPort && upstreamHttpPort != controlPort)
         require(ptProxyPort in 1024..65535 && ptProxyPort != socksPort && ptProxyPort != controlPort && ptProxyPort != upstreamHttpPort)
         validateBridgeLines(bridgeLines)
+        // 1.2.182: fix: the manual-Tor torrc accepted exitCountry and silently ignored it (the compiler
+        // warning proved it); now the exit-country line is written here too, same as the embedded path.
+        exitNodesText(exitCountry).lines().forEach { if (it.isNotBlank()) appendLine(it) }
         val socksBind = if (allowLan) "0.0.0.0:$socksPort" else "127.0.0.1:$socksPort"
         appendLine("SocksPort $socksBind")
         appendLine("ControlPort 127.0.0.1:$controlPort")
