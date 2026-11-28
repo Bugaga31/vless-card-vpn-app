@@ -502,6 +502,10 @@ object Tester {
     fun speed(port: Int, seconds: Int = 8): SpeedResult {
         val client = base.newBuilder().proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port)))
             .callTimeout(seconds + 10L, TimeUnit.SECONDS).build()
+        // 1.2.181: fix: ping attempts inherited the full download call timeout (seconds + 10 s), so a dead
+        // remembered check URL could stall the whole speed test for tens of seconds before falling back;
+        // ping calls now get their own short 5 s timeout.
+        val pingClient = client.newBuilder().callTimeout(5, TimeUnit.SECONDS).build()
         // 1.2.168: ping is measured against the check URL that answered fastest last time (known to work on
         // this network), falling back to gstatic when none is remembered yet.
         // 1.2.176: when the remembered URL gives no answer, ping is retried against gstatic so the
@@ -510,15 +514,15 @@ object Tester {
         // gstatic are unreachable, so the ping stays a real number even on heavily filtered networks.
         val ping = runCatching {
             val t0 = System.nanoTime()
-            client.newCall(Request.Builder().url(com.vlesscardvpn.core.RouteLiveness.preferredUrl ?: "https://www.gstatic.com/generate_204").header("User-Agent", UA).build()).execute().use { }
+            pingClient.newCall(Request.Builder().url(com.vlesscardvpn.core.RouteLiveness.preferredUrl ?: "https://www.gstatic.com/generate_204").header("User-Agent", UA).build()).execute().use { }
             ((System.nanoTime() - t0) / 1_000_000).toInt()
         }.getOrDefault(0).takeIf { it > 0 } ?: runCatching {
             val t0 = System.nanoTime()
-            client.newCall(Request.Builder().url("https://www.gstatic.com/generate_204").header("User-Agent", UA).build()).execute().use { }
+            pingClient.newCall(Request.Builder().url("https://www.gstatic.com/generate_204").header("User-Agent", UA).build()).execute().use { }
             ((System.nanoTime() - t0) / 1_000_000).toInt()
         }.getOrDefault(0).takeIf { it > 0 } ?: runCatching {
             val t0 = System.nanoTime()
-            client.newCall(Request.Builder().url(com.vlesscardvpn.core.RouteLiveness.CLOUDFLARE).header("User-Agent", UA).build()).execute().use { }
+            pingClient.newCall(Request.Builder().url(com.vlesscardvpn.core.RouteLiveness.CLOUDFLARE).header("User-Agent", UA).build()).execute().use { }
             ((System.nanoTime() - t0) / 1_000_000).toInt()
         }.getOrDefault(0)
         // 1.2.173: the mirror that gave a good sample last time is tried first (per network profile).
