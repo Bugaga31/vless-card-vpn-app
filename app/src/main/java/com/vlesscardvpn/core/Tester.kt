@@ -505,8 +505,11 @@ object Tester {
 
     /** Download speed through the running tunnel: up to [seconds] s of one big file (first mirror that answers), plus ping. */
     fun speed(port: Int, seconds: Int = 8): SpeedResult {
+        // 1.2.188: fix: readTimeout was inherited from base (8 s), so a mirror that stalled mid-download could
+        // hold the measurement window open past its deadline before failing over; the speed client now gets its
+        // own short 3 s read timeout, so a stuck stream fails fast and the next mirror takes over.
         val client = base.newBuilder().proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port)))
-            .callTimeout(seconds + 10L, TimeUnit.SECONDS).build()
+            .callTimeout(seconds + 10L, TimeUnit.SECONDS).readTimeout(3, TimeUnit.SECONDS).build()
         // 1.2.181: fix: ping attempts inherited the full download call timeout (seconds + 10 s), so a dead
         // remembered check URL could stall the whole speed test for tens of seconds before falling back;
         // ping calls now get their own short 5 s timeout.
