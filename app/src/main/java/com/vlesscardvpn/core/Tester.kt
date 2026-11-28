@@ -47,7 +47,7 @@ object Tester {
     private val fast: OkHttpClient by lazy {
         base.newBuilder().connectTimeout(5, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).callTimeout(9, TimeUnit.SECONDS).build()
     }
-    val BIG_URLS = listOf("https://speed.cloudflare.com/__down?bytes=262144", "https://cachefly.cachefly.net/1mb.test")
+    val BIG_URLS = listOf("https://speed.cloudflare.com/__down?bytes=262144", "https://cachefly.cachefly.net/1mb.test", "https://speed.cloudflare.com/__down?bytes=1048576")
     const val YT_URL = "https://www.youtube.com/generate_204"
     const val TG_URL = "https://api.telegram.org/"
     const val BIG_BYTES = TransferProof.REQUIRED_BYTES
@@ -490,7 +490,7 @@ object Tester {
     fun traceLoc(body: String): String? = body.lineSequence().firstOrNull { it.startsWith("loc=") }?.substringAfter('=')?.trim()?.uppercase()?.takeIf { it.length == 2 }
 
     data class SpeedResult(val mbps: Double, val pingMs: Int, val bytes: Long)
-    val SPEED_URLS = listOf("https://speed.cloudflare.com/__down?bytes=25000000", "https://cachefly.cachefly.net/10mb.test")
+    val SPEED_URLS = listOf("https://speed.cloudflare.com/__down?bytes=25000000", "https://cachefly.cachefly.net/10mb.test", "https://ash-speed.hetzner.com/100MB.bin", "https://proof.ovh.net/files/100Mb.dat")
 
     /** Download speed through the running tunnel: up to [seconds] s of one big file (first mirror that answers), plus ping. */
     fun speed(port: Int, seconds: Int = 8): SpeedResult {
