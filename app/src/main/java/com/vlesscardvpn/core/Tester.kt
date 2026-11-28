@@ -497,8 +497,11 @@ object Tester {
 
     data class SpeedResult(val mbps: Double, val pingMs: Int, val bytes: Long)
     /** 1.2.168: third full-speed mirror (OVH) added; the first one that answers still wins. */
-    /** 1.2.171: fourth mirror (testdebit.info, Bouygues) added, like the small-test pool. */
-    val SPEED_URLS = listOf("https://speed.cloudflare.com/__down?bytes=25000000", "https://cachefly.cachefly.net/10mb.test", "https://proof.ovh.net/files/10Mb.dat", "https://bouygues.testdebit.info/10M.iso")
+    /** 1.2.171: fourth mirror (testdebit.info, Bouygues) added, like the small-test pool.
+     *  1.2.187: fifth and sixth mirrors added for the per-variant speed test (Cloudflare __down 100 MB —
+     *  the same verified __down endpoint at a bigger size, and Hetzner US ash-speed 100MB.bin, both
+     *  curl-verified live this release; a big file keeps the measurement honest on fast tunnels). */
+    val SPEED_URLS = listOf("https://speed.cloudflare.com/__down?bytes=25000000", "https://cachefly.cachefly.net/10mb.test", "https://proof.ovh.net/files/10Mb.dat", "https://bouygues.testdebit.info/10M.iso", "https://speed.cloudflare.com/__down?bytes=100000000", "https://ash-speed.hetzner.com/100MB.bin")
 
     /** Download speed through the running tunnel: up to [seconds] s of one big file (first mirror that answers), plus ping. */
     fun speed(port: Int, seconds: Int = 8): SpeedResult {
