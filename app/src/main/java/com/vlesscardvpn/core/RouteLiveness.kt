@@ -20,8 +20,11 @@ object RouteLiveness {
     const val GSTATIC = "https://www.gstatic.com/generate_204"
     const val CLOUDFLARE = "https://cp.cloudflare.com/generate_204"
 
-    /** 1.2.164: more public liveness endpoints; they all race at once, ANY HTTP answer proves the route. */
+    /** 1.2.164: more public liveness endpoints; they all race at once, ANY HTTP answer proves the route.
+     *  1.2.172: Debian network-test and GNOME nmcheck added (two more independent operators). */
     val EXTRA_CHECK_URLS: List<String> = listOf(
+        "https://network-test.debian.org/nm",
+        "https://nmcheck.gnome.org/",
         "https://connectivitycheck.gstatic.com/generate_204",
         "https://www.google.com/generate_204",
         "https://www.msftconnecttest.com/connecttest.txt",
@@ -96,10 +99,11 @@ object RouteLiveness {
     fun answered(code: Int): Boolean = code in 100..599
 
     /** The configured check URL first, then the fastest winner from last time, then the rest; HTTPS only.
-     *  1.2.167: pool widened 9 -> 13 URLs, all still racing at once. */
+     *  1.2.167: pool widened 9 -> 13 URLs, all still racing at once.
+     *  1.2.172: pool widened 13 -> 15 URLs. */
     fun urls(testUrl: String): List<String> =
         (listOf(testUrl.trim(), preferredUrl, GSTATIC, CLOUDFLARE) + EXTRA_CHECK_URLS)
-            .filterNotNull().filter { it.startsWith("https://") }.distinct().take(13)
+            .filterNotNull().filter { it.startsWith("https://") }.distinct().take(15)
 
     /** Fixed anycast targets plus a few TCP VLESS endpoints (so a closed lab network still has a physical witness). */
     fun targets(endpoints: List<Pair<String, Int>>): List<Pair<String, Int>> =
