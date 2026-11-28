@@ -390,11 +390,15 @@ object Tester {
     private fun bigDownload(client: OkHttpClient, deadline: Long = Long.MAX_VALUE, onCall: ((okhttp3.Call) -> Unit)? = null): BodyResult {
         val order = RouteLiveness.preferredBigUrl?.takeIf { BIG_URLS.contains(it) }
             ?.let { first -> listOf(first) + BIG_URLS.filter { it != first } } ?: BIG_URLS
+        // 1.2.189: у big-клиента свой короткий readTimeout (3 с), как у speed-клиента в 1.2.188:
+        // застрявшее чтение зеркала больше не держит бюджет дольше нужного, поток быстро сдаётся
+        // и берётся следующее зеркало. Функции не удалялись.
+        val bigClient = client.newBuilder().readTimeout(3, TimeUnit.SECONDS).build()
         for (url in order) {
             val t0 = System.nanoTime()
             try {
                 if (System.nanoTime() >= deadline) return BodyResult()
-                val sample = download(client, url, deadline, onCall)
+                val sample = download(bigClient, url, deadline, onCall)
                 if (sample.bytes >= BIG_BYTES) { RouteLiveness.noteBigUrl(url); return BodyResult(true, minOf(sample.slowestKbps,TransferProof.rate(sample.bytes,System.nanoTime()-t0)), sample.bytes.toLong(), ((System.nanoTime()-t0)/1_000_000).coerceAtLeast(1)) }
             } catch (e: java.io.InterruptedIOException) { return BodyResult() } catch (e: Exception) { /* mirror down: next */ }
         }
