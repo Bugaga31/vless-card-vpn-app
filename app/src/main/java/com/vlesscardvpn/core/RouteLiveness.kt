@@ -125,10 +125,12 @@ object RouteLiveness {
 
     /** The configured check URL first, then the fastest winner from last time, then the rest; HTTPS only.
      *  1.2.167: pool widened 9 -> 13 URLs, all still racing at once.
-     *  1.2.172: pool widened 13 -> 15 URLs. */
+     *  1.2.172: pool widened 13 -> 15 URLs.
+     *  1.2.183: cap raised 15 -> 17: the pool itself is now at most 17 unique URLs, so the old cap was
+     *  silently cutting the last two witnesses (baidu, vivo) out of the race. */
     fun urls(testUrl: String): List<String> =
         (listOf(testUrl.trim(), preferredUrl, GSTATIC, CLOUDFLARE) + EXTRA_CHECK_URLS)
-            .filterNotNull().filter { it.startsWith("https://") }.distinct().take(15)
+            .filterNotNull().filter { it.startsWith("https://") }.distinct().take(17)
 
     /** Fixed anycast targets plus a few TCP VLESS endpoints (so a closed lab network still has a physical witness). */
     fun targets(endpoints: List<Pair<String, Int>>): List<Pair<String, Int>> =
