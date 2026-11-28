@@ -504,6 +504,8 @@ object Tester {
         // this network), falling back to gstatic when none is remembered yet.
         // 1.2.176: when the remembered URL gives no answer, ping is retried against gstatic so the
         // measurement still shows a real round-trip instead of a blank 0.
+        // 1.2.178: a third fallback (Cloudflare generate_204) is tried when both the remembered URL and
+        // gstatic are unreachable, so the ping stays a real number even on heavily filtered networks.
         val ping = runCatching {
             val t0 = System.nanoTime()
             client.newCall(Request.Builder().url(com.vlesscardvpn.core.RouteLiveness.preferredUrl ?: "https://www.gstatic.com/generate_204").header("User-Agent", UA).build()).execute().use { }
@@ -511,6 +513,10 @@ object Tester {
         }.getOrDefault(0).takeIf { it > 0 } ?: runCatching {
             val t0 = System.nanoTime()
             client.newCall(Request.Builder().url("https://www.gstatic.com/generate_204").header("User-Agent", UA).build()).execute().use { }
+            ((System.nanoTime() - t0) / 1_000_000).toInt()
+        }.getOrDefault(0).takeIf { it > 0 } ?: runCatching {
+            val t0 = System.nanoTime()
+            client.newCall(Request.Builder().url(com.vlesscardvpn.core.RouteLiveness.CLOUDFLARE).header("User-Agent", UA).build()).execute().use { }
             ((System.nanoTime() - t0) / 1_000_000).toInt()
         }.getOrDefault(0)
         // 1.2.173: the mirror that gave a good sample last time is tried first (per network profile).
