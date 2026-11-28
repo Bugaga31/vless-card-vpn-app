@@ -47,7 +47,8 @@ object Tester {
     private val fast: OkHttpClient by lazy {
         base.newBuilder().connectTimeout(5, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).callTimeout(9, TimeUnit.SECONDS).build()
     }
-    val BIG_URLS = listOf("https://speed.cloudflare.com/__down?bytes=262144", "https://cachefly.cachefly.net/1mb.test")
+    /** 1.2.167: third mirror (OVH) added; the fastest one still stays first next time. */
+    val BIG_URLS = listOf("https://speed.cloudflare.com/__down?bytes=262144", "https://cachefly.cachefly.net/1mb.test", "https://proof.ovh.net/files/1Mb.dat")
     const val YT_URL = "https://www.youtube.com/generate_204"
     const val TG_URL = "https://api.telegram.org/"
     const val BIG_BYTES = TransferProof.REQUIRED_BYTES

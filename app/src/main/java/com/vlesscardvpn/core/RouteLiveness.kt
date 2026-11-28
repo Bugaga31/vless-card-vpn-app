@@ -29,6 +29,10 @@ object RouteLiveness {
         "https://detectportal.firefox.com/success.txt",
         "https://connect.rom.miui.com/generate_204",
         "https://connectivitycheck.platform.hicloud.com/generate_204",
+        "https://connectivitycheck.android.com/generate_204",
+        "https://www.v2ex.com/generate_204",
+        "https://wifi.vivo.com.cn/generate_204",
+        "https://www.baidu.com/generate_204",
     )
 
     /** 1.2.164: the endpoint that answered fastest last time is tried first next time ("fastest stays").
@@ -76,10 +80,11 @@ object RouteLiveness {
     /** Any HTTP status proves that the route carries traffic both ways; only a transport failure counts as silence. */
     fun answered(code: Int): Boolean = code in 100..599
 
-    /** The configured check URL first, then the fastest winner from last time, then the rest; HTTPS only. */
+    /** The configured check URL first, then the fastest winner from last time, then the rest; HTTPS only.
+     *  1.2.167: pool widened 9 -> 13 URLs, all still racing at once. */
     fun urls(testUrl: String): List<String> =
         (listOf(testUrl.trim(), preferredUrl, GSTATIC, CLOUDFLARE) + EXTRA_CHECK_URLS)
-            .filterNotNull().filter { it.startsWith("https://") }.distinct().take(9)
+            .filterNotNull().filter { it.startsWith("https://") }.distinct().take(13)
 
     /** Fixed anycast targets plus a few TCP VLESS endpoints (so a closed lab network still has a physical witness). */
     fun targets(endpoints: List<Pair<String, Int>>): List<Pair<String, Int>> =
