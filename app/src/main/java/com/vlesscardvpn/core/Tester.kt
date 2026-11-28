@@ -512,19 +512,25 @@ object Tester {
         // measurement still shows a real round-trip instead of a blank 0.
         // 1.2.178: a third fallback (Cloudflare generate_204) is tried when both the remembered URL and
         // gstatic are unreachable, so the ping stays a real number even on heavily filtered networks.
-        val ping = runCatching {
-            val t0 = System.nanoTime()
-            pingClient.newCall(Request.Builder().url(com.vlesscardvpn.core.RouteLiveness.preferredUrl ?: "https://www.gstatic.com/generate_204").header("User-Agent", UA).build()).execute().use { }
-            ((System.nanoTime() - t0) / 1_000_000).toInt()
-        }.getOrDefault(0).takeIf { it > 0 } ?: runCatching {
-            val t0 = System.nanoTime()
-            pingClient.newCall(Request.Builder().url("https://www.gstatic.com/generate_204").header("User-Agent", UA).build()).execute().use { }
-            ((System.nanoTime() - t0) / 1_000_000).toInt()
-        }.getOrDefault(0).takeIf { it > 0 } ?: runCatching {
-            val t0 = System.nanoTime()
-            pingClient.newCall(Request.Builder().url(com.vlesscardvpn.core.RouteLiveness.CLOUDFLARE).header("User-Agent", UA).build()).execute().use { }
-            ((System.nanoTime() - t0) / 1_000_000).toInt()
-        }.getOrDefault(0)
+        val ping = run {
+            // 1.2.184: fix: when no winner is remembered (or the winner IS gstatic), the first two ping
+            // attempts used to knock on the same gstatic URL twice, wasting up to 5 s of the speed test;
+            // the three fallbacks are now deduped before the race.
+            var result = 0
+            for (url in listOfNotNull(
+                com.vlesscardvpn.core.RouteLiveness.preferredUrl,
+                "https://www.gstatic.com/generate_204",
+                com.vlesscardvpn.core.RouteLiveness.CLOUDFLARE,
+            ).distinct()) {
+                result = runCatching {
+                    val t0 = System.nanoTime()
+                    pingClient.newCall(Request.Builder().url(url).header("User-Agent", UA).build()).execute().use { }
+                    ((System.nanoTime() - t0) / 1_000_000).toInt()
+                }.getOrDefault(0)
+                if (result > 0) break
+            }
+            result
+        }
         // 1.2.173: the mirror that gave a good sample last time is tried first (per network profile).
         val order = RouteLiveness.preferredSpeedUrl?.takeIf { SPEED_URLS.contains(it) }
             ?.let { first -> listOf(first) + SPEED_URLS.filter { it != first } } ?: SPEED_URLS
