@@ -89,6 +89,11 @@ object RouteLiveness {
             prefs?.edit()?.putString(key("speed", profile), url)?.apply()
         }
     }
+    /** 1.2.174: a speed mirror that stopped delivering clears its first place, so a dead mirror is not retried first forever. */
+    fun dropSpeedUrl() {
+        preferredSpeedUrl = null
+        prefs?.edit()?.remove(key("speed", profile))?.apply()
+    }
 
     /** Anycast resolvers reachable from Russian and foreign networks alike; a TCP handshake only, no payload.
      *  1.2.170: pool widened 7 -> 10 (Quad9 secondary, OpenDNS secondary, AdGuard), more witnesses survive local blocks. */

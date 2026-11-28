@@ -524,6 +524,7 @@ object Tester {
             if (r != null && r.bytes > 100_000) { RouteLiveness.noteSpeedUrl(url); client.connectionPool.evictAll(); return r }
         }
         client.connectionPool.evictAll()
+        if (RouteLiveness.preferredSpeedUrl != null) RouteLiveness.dropSpeedUrl()
         return SpeedResult(0.0, ping, 0)
     }
 
