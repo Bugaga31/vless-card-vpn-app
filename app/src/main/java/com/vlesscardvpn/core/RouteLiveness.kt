@@ -85,7 +85,9 @@ object RouteLiveness {
     /** A round with no answer from anyone clears the memory: another endpoint must win the next race. */
     fun dropWinner() {
         preferredUrl = null
-        prefs?.edit()?.remove("preferred_" + networkKind())?.apply()
+        // 1.2.191: remove the legacy key too — loadPreferred() falls back to "preferred", so a dead URL remembered
+        // before the per-kind split would resurrect itself right after being dropped (kill cycle on every round).
+        prefs?.edit()?.remove("preferred_" + networkKind())?.remove("preferred")?.apply()
     }
 
     /** 1.2.165: the big-download mirror that delivered fastest last time is tried first next time. 1.2.173: remembered per network kind. */
@@ -101,7 +103,9 @@ object RouteLiveness {
     fun dropBigUrl() {
         if (preferredBigUrl != null) {
             preferredBigUrl = null
-            prefs?.edit()?.remove("big_" + networkKind())?.apply()
+            // 1.2.191: the legacy "big" key falls back in loadPreferred() the same way — clear it, or a demoted dead
+            // mirror comes back from the legacy entry on the next load and wins the race again.
+            prefs?.edit()?.remove("big_" + networkKind())?.remove("big")?.apply()
         }
     }
 
