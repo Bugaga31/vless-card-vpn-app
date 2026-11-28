@@ -48,8 +48,10 @@ object Tester {
         base.newBuilder().connectTimeout(5, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).callTimeout(9, TimeUnit.SECONDS).build()
     }
     /** 1.2.167: third mirror (OVH) added; the fastest one still stays first next time.
-     *  1.2.171: fourth mirror (testdebit.info, Bouygues) added. */
-    val BIG_URLS = listOf("https://speed.cloudflare.com/__down?bytes=262144", "https://cachefly.cachefly.net/1mb.test", "https://proof.ovh.net/files/1Mb.dat", "https://bouygues.testdebit.info/1M.iso")
+     *  1.2.171: fourth mirror (testdebit.info, Bouygues) added.
+     *  1.2.186: fifth and sixth mirrors added, both curl-verified live this release (Cloudflare __down 1 MB
+     *  answered 200 with the full 1 MB, Hetzner US ash-speed answered 206 to a range request). */
+    val BIG_URLS = listOf("https://speed.cloudflare.com/__down?bytes=262144", "https://cachefly.cachefly.net/1mb.test", "https://proof.ovh.net/files/1Mb.dat", "https://bouygues.testdebit.info/1M.iso", "https://speed.cloudflare.com/__down?bytes=1048576", "https://ash-speed.hetzner.com/100MB.bin")
     const val YT_URL = "https://www.youtube.com/generate_204"
     const val TG_URL = "https://api.telegram.org/"
     const val BIG_BYTES = TransferProof.REQUIRED_BYTES
