@@ -38,6 +38,7 @@ object RouteLiveness {
     fun initPrefs(ctx: android.content.Context) {
         prefs = ctx.getSharedPreferences("check_url", 0)
         preferredUrl = prefs?.getString("preferred", null)?.takeIf { it.startsWith("https://") }
+        preferredBigUrl = prefs?.getString("big", null)?.takeIf { it.startsWith("https://") }
     }
     fun noteAnswered(url: String) {
         if (url.startsWith("https://") && preferredUrl != url) {
@@ -47,6 +48,15 @@ object RouteLiveness {
     }
     /** A round with no answer from anyone clears the memory: another endpoint must win the next race. */
     fun dropWinner() { preferredUrl = null; prefs?.edit()?.remove("preferred")?.apply() }
+
+    /** 1.2.165: the big-download mirror that delivered fastest last time is tried first next time. */
+    @Volatile var preferredBigUrl: String? = null
+    fun noteBigUrl(url: String) {
+        if (url.startsWith("https://") && preferredBigUrl != url) {
+            preferredBigUrl = url
+            prefs?.edit()?.putString("big", url)?.apply()
+        }
+    }
 
     /** Anycast resolvers reachable from Russian and foreign networks alike; a TCP handshake only, no payload. */
     val PHYSICAL_TARGETS: List<Pair<String, Int>> = listOf(

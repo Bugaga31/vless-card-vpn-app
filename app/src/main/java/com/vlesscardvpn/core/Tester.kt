@@ -384,12 +384,14 @@ object Tester {
     private data class BodyResult(val ok: Boolean = false, val kbps: Int = 0, val bytes: Long = 0, val ms: Long = 0)
 
     private fun bigDownload(client: OkHttpClient, deadline: Long = Long.MAX_VALUE, onCall: ((okhttp3.Call) -> Unit)? = null): BodyResult {
-        for (url in BIG_URLS) {
+        val order = RouteLiveness.preferredBigUrl?.takeIf { BIG_URLS.contains(it) }
+            ?.let { first -> listOf(first) + BIG_URLS.filter { it != first } } ?: BIG_URLS
+        for (url in order) {
             val t0 = System.nanoTime()
             try {
                 if (System.nanoTime() >= deadline) return BodyResult()
                 val sample = download(client, url, deadline, onCall)
-                if (sample.bytes >= BIG_BYTES) return BodyResult(true, minOf(sample.slowestKbps,TransferProof.rate(sample.bytes,System.nanoTime()-t0)), sample.bytes.toLong(), ((System.nanoTime()-t0)/1_000_000).coerceAtLeast(1))
+                if (sample.bytes >= BIG_BYTES) { RouteLiveness.noteBigUrl(url); return BodyResult(true, minOf(sample.slowestKbps,TransferProof.rate(sample.bytes,System.nanoTime()-t0)), sample.bytes.toLong(), ((System.nanoTime()-t0)/1_000_000).coerceAtLeast(1)) }
             } catch (e: java.io.InterruptedIOException) { return BodyResult() } catch (e: Exception) { /* mirror down: next */ }
         }
         return BodyResult()
