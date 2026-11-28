@@ -242,7 +242,7 @@ class TunnelService : VpnService() {
         val keepTun = soft && tun != null && prevSocks != null
         lastSoft = keepTun
         teardown(null, keepTun)
-        Store.init(this); Actions.init(this); RouteLiveness.initPrefs(this)
+        Store.init(this); Actions.init(this); com.vlesscardvpn.core.RouteLiveness.initPrefs(this)
         Store.update { state -> state.copy(settings=com.vlesscardvpn.tor.TorConnectionPolicy.bridged(state.settings)) }
         com.vlesscardvpn.core.ConnectionPassport.clear()
         com.vlesscardvpn.core.BackgroundOptimization.clear()
